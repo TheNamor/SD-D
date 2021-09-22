@@ -1,6 +1,6 @@
 # Meeting Scheduler
 
-#### Authors:
+##### Authors:
    Roman Nett
    Katherine Rosas
    Yash Khatiwala
