@@ -3,6 +3,13 @@ This document contains the OOP that assigns a list of events to a list of rooms 
 
 Authors:
     Roman Nett
+
+Ver 1- (iterations=100, swap_num=10, temperature=10)
+    Accuracy ~ 77.9%
+    Time per point ~ 0.159
+Ver 2- (iterations=100, swap_num=10, temperature=10)
+    Accuracy ~ 90%
+    Time per point ~ 0.026
 """
 
 import random, math
@@ -125,28 +132,73 @@ def findSolution(rooms, events):
     
     return out, events
 
-def findCandidate(rooms, events, swap_num):
+def fitUnassigned(room, room_list, unassigned):
     """
-    Makes a number of random swaps in a list of events and finds the candidate solution
+    Fits unassigned events into a room in between any events already assigned
 
     Arguments-
-    rooms (list):       a list of Room objects
-    events (list):      the current order of events to be swapped around
-    swap_num (int):     the number of swaps to perform on the list of events
+    room (Room):        the Room object that events are being assigned to
+    room_list (list):   the list of Event objects corresponding to the Room
+    unassigned (list):  list of unassigned Events
 
     Returns-
-    (tuple):    a list of lists of Events corresponding to Rooms, a list of unassigned Events, the new order of events
+    (tuple):        room_list with new Events assigned to it, new unassigned with assigned Events removed
     """
-    new_order = events.copy()
-
-    # Swap event orders to find neighbor solutions
-    for i in range(swap_num):
-        first = random.randrange(len(new_order))
-        second = random.randrange(len(new_order))
-        new_order[first], new_order[second] = new_order[second], new_order[first]
+    assigned = True
+    while assigned:
+        assigned = False
+        for i in range(len(room_list)):
+            for j in range(len(unassigned)):
+                event = unassigned[j]
+                if room_list[i].starts >= event.ends and event.starts >= room.opens and event.ends <= room.closes and event.attendees <= room.capacity:
+                    assigned = True
+                    room_list.insert(i, unassigned.pop(j))
+                    break
+        if len(room_list):
+            for j in range(len(unassigned)):
+                event = unassigned[j]
+                if room_list[-1].ends <= event.starts and event.ends <= room.closes and event.attendees <= room.capacity:
+                    assigned = True
+                    room_list.append(unassigned.pop(j))
+                    break
+        else:
+            for j in range(len(unassigned)):
+                event = unassigned[j]
+                if event.starts >= room.opens and event.ends <= room.closes and event.attendees <= room.capacity:
+                    assigned = True
+                    room_list.append(unassigned.pop(j))
+                    break
     
-    return *findSolution(rooms, new_order), new_order
+    return room_list, unassigned
 
+def findCandidate(rooms, current, swap_num, unassigned):
+    """
+    Removes a number of events from random rooms and adds them back to the pool of unassigned rooms
+    Then it fits unassigned rooms back into them
+
+    Arguments-
+    rooms (list):       list of rooms
+    current (list):     current solution
+    swap_num (int):     the number of swaps to make
+    unassigned (list):  list of current unassigned events
+
+    Returns-
+    (tuple):    new candidate solution, list of unassigned events
+    """
+    new_candidate = [current[i].copy() for i in range(len(current))]
+    unassigned = unassigned.copy()
+
+    swap_indices = []
+    for i in range(swap_num):
+        index = random.randrange(len(new_candidate))
+        swap_indices.append(index)
+        if len(new_candidate[index]):
+            unassigned.append(new_candidate[index].pop(random.randrange(len(new_candidate[index]))))
+    
+    for index in swap_indices:
+        new_candidate[index], unassigned = fitUnassigned(rooms[index], new_candidate[index], unassigned)
+    
+    return new_candidate, unassigned
 
 def assign(rooms, events, iterations=500, swap_num=10, temperature=10, print_level="all"):
     """
@@ -173,7 +225,7 @@ def assign(rooms, events, iterations=500, swap_num=10, temperature=10, print_lev
     best, best_unassigned = findSolution(rooms, events.copy())
     best_eval = len(best_unassigned)
 
-    curr, curr_eval = (best, events), best_eval
+    curr, curr_eval, curr_unassigned = best, best_eval, best_unassigned
 
     # Simulated annealing over a number of iterations
     for i in range(iterations):
@@ -181,7 +233,7 @@ def assign(rooms, events, iterations=500, swap_num=10, temperature=10, print_lev
             #break
             pass
         # Find the neighboring candidate by swapping a random number of events in the ordered list
-        candidate, candidate_unassigned, new_order = findCandidate(rooms, curr[1], random.randrange(swap_num))
+        candidate, candidate_unassigned = findCandidate(rooms, curr, random.randrange(swap_num), curr_unassigned)
         candidate_eval = len(candidate_unassigned)
         if print_level in ["some", "all", "epoch"]:
             print("Epoch", str(i) + ":", curr_eval, "vs", candidate_eval)
@@ -198,7 +250,7 @@ def assign(rooms, events, iterations=500, swap_num=10, temperature=10, print_lev
 
         # If you have a best solution or get below the criterion, set the current solution to the candidate
         if eval_diff < 0 or random.random() < metropolis:
-            curr, curr_eval = (candidate, new_order), candidate_eval
+            curr, curr_eval, curr_unassigned = candidate, candidate_eval, candidate_unassigned
 
     # Assign the best found solution to the rooms
     for i in range(len(best)):
@@ -219,3 +271,21 @@ def assign(rooms, events, iterations=500, swap_num=10, temperature=10, print_lev
                 print(len(room.events), "events assigned")
     
     return best, best_unassigned, evals
+
+if __name__ == "__main__":
+    big_rooms = []
+    big_events = []
+    num_rooms = 200
+    num_events = 900
+
+    for i in range(num_rooms):
+        big_rooms.append(Room("Room " + str(i), random.randint(10, 30), opens=random.randint(8, 10), closes=random.randint(15, 18)))
+
+    for i in range(num_events):
+        start = random.randint(8, 14) + random.random()
+        length = random.randint(1, 2) + random.random()
+        big_events.append(Event("Event " + str(i), start, start+length, random.randint(10, 30)))
+
+    rooms, unassigned, evals = assign(big_rooms, big_events, iterations=100, swap_num=10, temperature=10, print_level="epoch")
+
+    print(str((100-(len(unassigned)/num_events)*100))+"% Assigned")
