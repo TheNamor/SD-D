@@ -43,6 +43,16 @@ class Room(object):
         self.opens = opens
         self.closes = closes
         self.events = []
+    
+    def export(self):
+        """
+        Transforms the object into a dictionary for exporting to the frontend
+
+        Returns-
+        (dict):     dictionary of the object's properties
+        """
+        event_dicts = [event.export() for event in self.events]
+        return {"name": self.name, "capacity": self.capacity, "opens": self.opens, "closes": self.closes, "events": event_dicts}
 
 class Event(object):
     """
@@ -52,10 +62,10 @@ class Event(object):
     name (string):      the name of the event
     starts (float):     the 24h decimal representation of when the class starts (8:30am -> 8.5)
     ends (float):       the 24h decimal representation of when the class ends (5:30pm -> 17.5)
-    attendees (int):    the maximum number of people attending the event
+    attendance (int):   the maximum number of people attending the event
     """
 
-    def __init__(self, name, starts, ends, attendees):
+    def __init__(self, name, starts, ends, attendance):
         """
         Creates a new Event instance
 
@@ -63,17 +73,17 @@ class Event(object):
         name (string):      the name of the event
         starts (float):     the 24h decimal representation of when the class starts
         ends (float):       the 24h decimal representation of when the class ends
-        attendees (int):    the maximum number of people attending the event
+        attendance (int):   the maximum number of people attending the event
         """
         self.name = name
         self.starts = starts
         self.ends = ends
-        self.attendees = attendees
+        self.attendance = attendance
     
     def __lt__(self, other):
         """
         Determines the sorting order of two Events, earlier and longer events should be less than later and shorter ones
-        ties are broken by attendees
+        ties are broken by attendance
 
         Arguments-
         other (Event):      the other Event being compared to this one
@@ -83,9 +93,18 @@ class Event(object):
         """
         if other.starts == self.starts:
             if (self.ends - self.starts) == (other.ends - other.starts):
-                return self.attendees > other.attendees
+                return self.attendance > other.attendance
             return (self.ends - self.starts) > (other.ends - other.starts)
         return self.starts < other.starts
+    
+    def export(self):
+        """
+        Transforms the object into a dictionary for exporting to the frontend
+
+        Returns-
+        (dict):     dictionary of the object's properties
+        """
+        return {"name": self.name, "attendance": self.attendance, "starts": self.starts, "ends": self.ends}
 
 def printEvents(events):
     """
@@ -96,7 +115,7 @@ def printEvents(events):
     """
 
     for event in events:
-        print("\t", event.name, "(" + str(event.starts), "-", str(event.ends) + ")", event.attendees)
+        print("\t", event.name, "(" + str(event.starts), "-", str(event.ends) + ")", event.attendance)
 
 def findSolution(rooms, events):
     """
@@ -123,7 +142,7 @@ def findSolution(rooms, events):
             for j in range(len(events)):
                 # For each room place in the earliest room that can fit
                 event = events[j]
-                if event.starts >= earliest and event.ends <= rooms[i].closes and event.attendees <= rooms[i].capacity:
+                if event.starts >= earliest and event.ends <= rooms[i].closes and event.attendance <= rooms[i].capacity:
                     found = events.pop(j)
                     break
             if not found is None:
@@ -150,21 +169,21 @@ def fitUnassigned(room, room_list, unassigned):
         for i in range(len(room_list)):
             for j in range(len(unassigned)):
                 event = unassigned[j]
-                if room_list[i].starts >= event.ends and event.starts >= room.opens and event.ends <= room.closes and event.attendees <= room.capacity:
+                if room_list[i].starts >= event.ends and event.starts >= room.opens and event.ends <= room.closes and event.attendance <= room.capacity:
                     assigned = True
                     room_list.insert(i, unassigned.pop(j))
                     break
         if len(room_list):
             for j in range(len(unassigned)):
                 event = unassigned[j]
-                if room_list[-1].ends <= event.starts and event.ends <= room.closes and event.attendees <= room.capacity:
+                if room_list[-1].ends <= event.starts and event.ends <= room.closes and event.attendance <= room.capacity:
                     assigned = True
                     room_list.append(unassigned.pop(j))
                     break
         else:
             for j in range(len(unassigned)):
                 event = unassigned[j]
-                if event.starts >= room.opens and event.ends <= room.closes and event.attendees <= room.capacity:
+                if event.starts >= room.opens and event.ends <= room.closes and event.attendance <= room.capacity:
                     assigned = True
                     room_list.append(unassigned.pop(j))
                     break
@@ -218,7 +237,6 @@ def assign(rooms, events, iterations=500, swap_num=10, temperature=10, print_lev
     Returns-
     (tuple):        the best solution, list of unassigned events, list of times the number of unassigned events was decreased
     """
-    evals = []
 
     # Find the first best solution using a greedy first fit decreasing method
     events.sort()
@@ -241,7 +259,6 @@ def assign(rooms, events, iterations=500, swap_num=10, temperature=10, print_lev
         # If you have found a new best soluton save it
         if candidate_eval < best_eval:
             best, best_eval, best_unassigned = candidate, candidate_eval, candidate_unassigned
-            evals.append(best_eval)
         
         # Use the current temperature to find the metropolis acceptance criterion
         eval_diff = candidate_eval - curr_eval
@@ -270,7 +287,7 @@ def assign(rooms, events, iterations=500, swap_num=10, temperature=10, print_lev
             else:
                 print(len(room.events), "events assigned")
     
-    return best, best_unassigned, evals
+    return rooms, best_unassigned
 
 if __name__ == "__main__":
     big_rooms = []
@@ -286,6 +303,6 @@ if __name__ == "__main__":
         length = random.randint(1, 2) + random.random()
         big_events.append(Event("Event " + str(i), start, start+length, random.randint(10, 30)))
 
-    rooms, unassigned, evals = assign(big_rooms, big_events, iterations=100, swap_num=10, temperature=10, print_level="epoch")
+    rooms, unassigned = assign(big_rooms, big_events, iterations=100, swap_num=10, temperature=10, print_level="epoch")
 
     print(str((100-(len(unassigned)/num_events)*100))+"% Assigned")
