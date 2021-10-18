@@ -51,7 +51,7 @@ def upload(request):
         solution, unassigned = algorithm_I.assign(rooms_list, events_list)
     """
 
-    out = {"solution": "Uploaded rooms of type " + rooms_type + " and events of type " + events_type, "rooms": [], "events": []}
+    out = {"solution": "Uploaded rooms of type " + str(rooms_type) + " and events of type " + str(events_type), "rooms": [], "events": []}
 
     return HttpResponse(json.dumps(out))
 

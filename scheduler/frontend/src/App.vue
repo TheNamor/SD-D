@@ -337,7 +337,7 @@ export default {
             */
             switch(panel) {
                 case 0:
-                    return this.openPanels.includes(0) ? 'mdi-chevron-up' : ((this.roomsFile || this.eventsFile) ? 'mdi-check' : 'mdi-chevron-up')
+                    return this.openPanels.includes(0) ? 'mdi-chevron-down' : ((this.roomsFile || this.eventsFile) ? 'mdi-check' : 'mdi-chevron-down')
                 default:
                     return 'mdi-chevron-down'
             }

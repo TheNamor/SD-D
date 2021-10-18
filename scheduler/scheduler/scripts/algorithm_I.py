@@ -23,7 +23,7 @@ class Room(object):
     opens (float):      the 24h decimal representation of when the room opens (8:30am -> 8.5)
     closes (float):     the 24h decimal representation of when the room closes (5:30pm -> 17.5)
     capacity (int):     the number of people that can fit in the room
-    events (list):     list of events assigned to the room
+    events (list):      list of events assigned to the room
     """
 
     def __init__(self, name, capacity, opens=-1, closes=24):

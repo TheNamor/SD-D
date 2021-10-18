@@ -11,13 +11,18 @@
 
 #### Installation
 
-1. Make sure npm and django are installed
+1. Make sure nodejs and npm are installed
 
-2. Clone git repo or pull most recent version
+2. Install python packages with
+      "pip install django-cors-headers"
+      "pip install requests-toolbelt"
+      "pip install numpy"
 
-3. Open terminal to SD-D\scheduler\frontend
+3. Clone git repo or pull most recent version
 
-4. Run "npm install" to install node modules
+4. Open terminal to SD-D\scheduler\frontend
+
+5. Run "npm install" to install node modules
 
 #### Running
 
