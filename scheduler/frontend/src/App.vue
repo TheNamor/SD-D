@@ -190,15 +190,31 @@
                 </v-expansion-panel-content>
             </v-expansion-panel>
             <!-- Expansion panel where you can manually input rooms -->
-            <v-expansion-panel readonly>
+            <v-expansion-panel>
                 <v-divider></v-divider>
                 <v-expansion-panel-header>Input Rooms Manually</v-expansion-panel-header>
+                <v-expansion-panel-content>
+                    <v-container>
+                        <v-card flat>
+                            <v-card-title>Input Form Goes Here</v-card-title>
+                            <v-card-text>Form to specify a room</v-card-text>
+                        </v-card>
+                    </v-container>
+                </v-expansion-panel-content>
                 <v-divider></v-divider>
             </v-expansion-panel>
             <!-- Expansion panel where you can manually input events -->
-            <v-expansion-panel readonly>
+            <v-expansion-panel>
                 <v-divider></v-divider>
                 <v-expansion-panel-header>Input Events Manually</v-expansion-panel-header>
+                <v-expansion-panel-content>
+                    <v-container>
+                        <v-card flat>
+                            <v-card-title>Input Form Goes Here</v-card-title>
+                            <v-card-text>Form to specify an event</v-card-text>
+                        </v-card>
+                    </v-container>
+                </v-expansion-panel-content>
                 <v-divider></v-divider>
             </v-expansion-panel>
         </v-expansion-panels>
@@ -219,7 +235,7 @@
         <!-- Shows rooms in a calendar format -->
         <v-col v-for="(room, i) in solution" :key="i">
             <v-card flat min-width="300">
-                <v-card-title>{{ room.name }}</v-card-title>
+                <v-card-title>{{ room.name + " - (Capacity: " + room.capacity + ")" }}</v-card-title>
                 <v-calendar
                     color="primary"
                     type="day"
@@ -229,11 +245,36 @@
                     :event-color="getEventColor"
                     :first-time="decimalToTime(room.opens-1)"
                     :interval-count="room.closes-Math.max(room.opens-2, 0)"
+                    :ref="'calendar'+i"
                 >
+                    <template v-slot:[`day-body`]="{ }">
+                        <div
+                            class="v-line"
+                            :style="{ top: getFirstY(i) }"
+                        ></div>
+                        <div
+                            class="v-line"
+                            :style="{ top: getLastY(i) }"
+                        ></div>
+                    </template>
                 </v-calendar>
             </v-card>
         </v-col>
     </v-row></v-container>
+    <v-container>
+        <v-card flat>
+            <v-card-title>Unassigned Events</v-card-title>
+            <v-data-table
+                :headers="eventsHeaders"
+                :items="unassignedEvents"
+                :items-per-page="-1"
+                hide-default-footer
+                :loading="loading"
+                no-data-text="No unassigned events"
+            >
+            </v-data-table>
+        </v-card>
+    </v-container>
     </span>
 </v-app>
 </template>
@@ -298,10 +339,10 @@ export default {
             times: [v => (parseFloat(v) >= 0 && parseFloat(v) <= 24) || "Time must be between 0 and 24"]
         },
         roomsData: [                // Holds the room items (currently has toy data in)
-            {name: "Room1",  capacity: 30, opens: 8, closes: 17}, {name: "Room2",  capacity: 30, opens: 8, closes: 17}, {name: "Room3",  capacity: 30, opens: 8, closes: 17}, {name: "Room4",  capacity: 30, opens: 8, closes: 17}, {name: "Room5",  capacity: 30, opens: 8, closes: 17}, {name: "Room7",  capacity: 30, opens: 8, closes: 17}, {name: "Room8",  capacity: 30, opens: 8, closes: 17}],
+            {name: "Room 1",  capacity: 30, opens: 10, closes: 15}, {name: "Room2",  capacity: 25, opens: 12, closes: 17}, {name: "Room 3",  capacity: 15, opens: 8, closes: 15}],
         eventsData: [               // Holds the event items (currently has toy data in)
-            {name: "meeting1", attendance: 23, starts: 10, ends: 10.5}, {name: "meeting2", attendance: 23, starts: 10, ends: 11.5}],
-        fileTypes: ".json,.csv,.tsv,.txt,.xmls",    // Supported file types
+            {name: "Event 1", attendance: 16, starts: 8, ends: 12}, {name: "Event 2", attendance: 23, starts: 14, ends: 17}, {name: "Event 3", attendance: 28, starts: 12, ends: 15}, {name: "Event 4", attendance: 23, starts: 10, ends: 11.5}],
+        fileTypes: ".json,.csv,.tsv,.txt,.xlsx",    // Supported file types
         colors: [                   // Different colors the events can be, chosen randomly
             "red", "pink", "purple", "deep-purple", "indigo", "blue", "light-blue", "cyan", "teal", "green", "light-green", "lime", "amber", "orange", "deep-orange", "brown", "blue-grey"
         ],
@@ -310,6 +351,7 @@ export default {
         roomsManual: [],            // Will hold room items being added manually
         eventsManual: [],           // Will gold event items being added manually
         solution: null,             // Holds a list of room items with lists of event items inside
+        unassignedEvents: [],       // Holds list of unassigned event objects
     }),
 
     // Functions that can be called using the vue data, not cached, don't need to return
@@ -408,14 +450,13 @@ export default {
                 this.deleteIndex = this.eventsData.indexOf(item)
             }
             this.deleteOpen = true
-            this.deleteIndex = -1
         },
         deleteItemConfirm() {
             // Completes a delete, removing the corresponding item from its list
             if (this.whichDialog == "room") {
-                this.roomsData.splice(this.deleteIndex)
+                this.roomsData.splice(this.deleteIndex, 1)
             } else {
-                this.eventsData.splice(this.deleteIndex)
+                this.eventsData.splice(this.deleteIndex, 1)
             }
             this.deleteOpen = false
             this.deleteIndex = -1
@@ -431,7 +472,7 @@ export default {
             axios({
                 // Call the backend /schedule url
                 method: "post",
-                url: "http://localhost:8000/schedule",
+                url: "http://" + this.host + ":8000/schedule",
                 data: {rooms: this.roomsData, events: this.eventsData}
             }).then( r=> {
                 // Check if an error occured, otherwise set the solution
@@ -441,8 +482,8 @@ export default {
                     return
                 }
                 this.solution = r.data.solution
+                this.unassignedEvents = r.data.unassigned
                 this.changePage("Solution")
-                console.log(this.solution)
             }).catch(error => {
                 // Check if an error occured in the http request
                 this.error = true
@@ -466,7 +507,7 @@ export default {
                 axios({
                     // Call the backend /upload url
                     method: "post",
-                    url: "http://localhost:8000/upload",
+                    url: "http://" + this.host + ":8000/upload",
                     data: formData
                 }).then( r=> {
                     // Check if an error occurred, otherwise add data to the corresponding list
@@ -545,6 +586,40 @@ export default {
             // Helper function for v-calendar
             return event.color
         },
+        getFirstY(index) {
+            /*
+            * Returns the height to place a line that shows the time a room opens
+            * 
+            * Arguments-
+            * index (int):      the index of the room's calendar
+            *
+            * Returns-
+            * (string):     string representing the number of pixels above where the line should be
+            */
+            if (!this.$refs['calendar'+index] || !this.$refs['calendar'+index][0]) {
+                return "-100px"
+            }
+            var calendar = this.$refs['calendar'+index][0]
+            var room = this.solution[index]
+            return calendar.timeToY(this.decimalToTime(room.opens))-1 + "px"
+        },
+        getLastY(index) {
+            /*
+            * Returns the height to place a line that shows the time a room closes
+            * 
+            * Arguments-
+            * index (int):      the index of the room's calendar
+            *
+            * Returns-
+            * (string):     string representing the number of pixels above where the line should be
+            */
+            if (!this.$refs['calendar'+index] || !this.$refs['calendar'+index][0]) {
+                return "-100px"
+            }
+            var calendar = this.$refs['calendar'+index][0]
+            var room = this.solution[index]
+            return calendar.timeToY(this.decimalToTime(room.closes))-1 + "px"
+        },
     },
 
     // Functions that calculate specific data values that sometimes change, are cached, need to return something
@@ -590,6 +665,9 @@ export default {
                 {title: "Solution", icon: "mdi-calendar-check", disabled: this.solution === null},
             ]
         },
+        host() {
+            return window.location.host.substring(0, window.location.host.length-5)
+        }
     }
 };
 </script>
@@ -600,4 +678,15 @@ export default {
   overflow-x: auto;
   flex-wrap: nowrap;
 }
+
+/* Line drawn on rooms to show when they start and end */
+.v-line {
+    height: 2px;
+    background-color: #ea4335;
+    position: absolute;
+    left: -1px;
+    right: 0;
+    pointer-events: none;
+}
+
 </style>
