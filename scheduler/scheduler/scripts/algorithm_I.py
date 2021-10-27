@@ -5,11 +5,11 @@ Authors:
     Roman Nett
 
 Ver 1- (iterations=100, swap_num=10, temperature=10)
-    Accuracy ~ 77.9%
+    Accuracy ~ 72.9%
     Time per point ~ 0.159
 Ver 2- (iterations=100, swap_num=10, temperature=10)
-    Accuracy ~ 90%
-    Time per point ~ 0.026
+    Accuracy ~ 87%
+    Time per iteration ~ 0.0007
 """
 
 import random, math
@@ -164,15 +164,21 @@ def fitUnassigned(room, room_list, unassigned):
     (tuple):        room_list with new Events assigned to it, new unassigned with assigned Events removed
     """
     assigned = True
+    # Continues looking for open spots until no events can fit in
     while assigned:
         assigned = False
+        # For every event assigned to the room
         for i in range(len(room_list)):
+            # For every unassigned event
             for j in range(len(unassigned)):
                 event = unassigned[j]
-                if room_list[i].starts >= event.ends and event.starts >= room.opens and event.ends <= room.closes and event.attendance <= room.capacity:
+                # Check if the unassigned event fits before the assigned event in the room
+                if room_list[i].starts >= event.ends and event.starts >= room.opens and event.ends <= room.closes and event.attendance <= room.capacity and (i == 0 or room_list[i-1].ends <= event.starts):
+                    # If a fit is found, assign it and start the process over
                     assigned = True
                     room_list.insert(i, unassigned.pop(j))
                     break
+        # Check if any of the unassigned events fit after the last assigned event
         if len(room_list):
             for j in range(len(unassigned)):
                 event = unassigned[j]
@@ -180,6 +186,7 @@ def fitUnassigned(room, room_list, unassigned):
                     assigned = True
                     room_list.append(unassigned.pop(j))
                     break
+        # Check if any unassigned events fit in an empty room
         else:
             for j in range(len(unassigned)):
                 event = unassigned[j]
@@ -204,16 +211,19 @@ def findCandidate(rooms, current, swap_num, unassigned):
     Returns-
     (tuple):    new candidate solution, list of unassigned events
     """
+    # Create copies of the room list and unassigned events list
     new_candidate = [current[i].copy() for i in range(len(current))]
     unassigned = unassigned.copy()
 
     swap_indices = []
+    # Pick a set of random room lists and remove a random event from them
     for i in range(swap_num):
         index = random.randrange(len(new_candidate))
         swap_indices.append(index)
         if len(new_candidate[index]):
             unassigned.append(new_candidate[index].pop(random.randrange(len(new_candidate[index]))))
     
+    # For each room list that had an event removed see if unassigned events can fit into it
     for index in swap_indices:
         new_candidate[index], unassigned = fitUnassigned(rooms[index], new_candidate[index], unassigned)
     
@@ -290,10 +300,11 @@ def assign(rooms, events, iterations=500, swap_num=10, temperature=10, print_lev
     return rooms, best_unassigned
 
 if __name__ == "__main__":
+    random.seed(100)
     big_rooms = []
     big_events = []
     num_rooms = 200
-    num_events = 900
+    num_events = 800
 
     for i in range(num_rooms):
         big_rooms.append(Room("Room " + str(i), random.randint(10, 30), opens=random.randint(8, 10), closes=random.randint(15, 18)))
@@ -303,6 +314,6 @@ if __name__ == "__main__":
         length = random.randint(1, 2) + random.random()
         big_events.append(Event("Event " + str(i), start, start+length, random.randint(10, 30)))
 
-    rooms, unassigned = assign(big_rooms, big_events, iterations=100, swap_num=10, temperature=10, print_level="epoch")
+    rooms, unassigned = assign(big_rooms, big_events, iterations=400, swap_num=10, temperature=10, print_level="epoch")
 
     print(str((100-(len(unassigned)/num_events)*100))+"% Assigned")
