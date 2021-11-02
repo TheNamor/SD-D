@@ -18,6 +18,7 @@ def checkRooms(room_list):
                 
 
 iterations = 100
+organizer = Organizer()
 
 for n in range(500):
     print("Collecting datapoint #" + str(n+1))
@@ -40,7 +41,7 @@ for n in range(500):
 
     # Find the time of the solution
     time1 = time.time()
-    rooms, unassigned = assign(big_rooms, big_events, iterations=iterations, swap_num=10, temperature=10, print_level="none")
+    rooms, unassigned = organizer.assign(big_rooms, big_events, iterations=iterations, swap_num=10, temperature=10, print_level="none")
     time2 = time.time()
 
     #print("Average", checkRooms(rooms), "errors per room")
