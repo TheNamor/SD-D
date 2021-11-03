@@ -1,11 +1,11 @@
 # Meeting Scheduler
 
 ### Authors:
-   Roman Nett
-   Katherine Rosas
-   Yash Khatiwala
-   Nik Pepmeyer
-   Tianze Zhu
+   Roman Nett  
+   Katherine Rosas  
+   Yash Khatiwala  
+   Nik Pepmeyer  
+   Tianze Zhu  
 
 ### Installation and Running
 
@@ -14,11 +14,12 @@
 1. Make sure nodejs and npm are installed
 
 2. Install python packages with  
+      "pip install django"  
       "pip install django-cors-headers"  
       "pip install requests-toolbelt"  
       "pip install numpy"  
-      "pip install pandas"
-      "pip install openpyxl"
+      "pip install pandas"  
+      "pip install openpyxl"  
 
 3. Clone git repo or pull most recent version
 
