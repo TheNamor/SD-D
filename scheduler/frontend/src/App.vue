@@ -185,6 +185,16 @@
                             <v-file-input label="Upload Rooms" :accept="fileTypes" v-model="roomsFile"></v-file-input>
                             <v-spacer></v-spacer>
                             <v-file-input label="Upload Events" :accept="fileTypes" v-model="eventsFile"></v-file-input>
+                            <v-btn
+                                outlined
+                                rounded
+                                @click="inputData"
+                                :color="roomsFile || eventsFile || roomsManual.length || eventsManual.length ? 'blue' : 'black'"
+                                :disabled="!validateInput"
+                                class="mt-3 ml-2"
+                            >
+                                <v-icon class="pr-2">mdi-application-import</v-icon>Import
+                            </v-btn>
                         </v-card>
                     </v-container>
                 </v-expansion-panel-content>
@@ -196,8 +206,31 @@
                 <v-expansion-panel-content>
                     <v-container>
                         <v-card flat>
-                            <v-card-title>Input Form Goes Here</v-card-title>
-                            <v-card-text>Form to specify a room</v-card-text>
+                            <v-card-title>Room Input Form</v-card-title>
+                    <!--<v-container v-if="whichDialog == 'room'"><v-row class="mt-5">-->
+                                <v-col>
+                                    <v-text-field v-model="newRoom.name" label="Room name" :rules="rules.names"></v-text-field>
+                                </v-col>
+                                <v-col>
+                                    <v-text-field v-model="newRoom.capacity" label="Capacity" type="number" :rules="rules.people"></v-text-field>
+                                </v-col>
+                                <v-col>
+                                    <v-text-field v-model="newRoom.opens" label="Opens (24h)" type="number" :rules="rules.times"></v-text-field>
+                                </v-col>
+                                <v-col>
+                                    <v-text-field v-model="newRoom.closes" label="Closes (24h)" type="number" :rules="rules.times"></v-text-field>
+                                </v-col>
+                    <!--</v-row></v-container>-->
+                            <v-btn
+                                outlined
+                                rounded
+                                @click="inputRoom"
+                                :color="roomsManual.length ? 'blue' : 'black'"
+                                :disabled="!validateRoom"
+                                class="mt-3 ml-2"
+                            >
+                            Add Room
+                            </v-btn>
                         </v-card>
                     </v-container>
                 </v-expansion-panel-content>
@@ -210,8 +243,29 @@
                 <v-expansion-panel-content>
                     <v-container>
                         <v-card flat>
-                            <v-card-title>Input Form Goes Here</v-card-title>
-                            <v-card-text>Form to specify an event</v-card-text>
+                            <v-card-title>Event Input Form</v-card-title>
+                                <v-col>
+                                    <v-text-field v-model="newEvent.name" label="Event name" :rules="rules.names"></v-text-field>
+                                </v-col>
+                                <v-col>
+                                    <v-text-field v-model="newEvent.attendance" label="Attendance" type="number" :rules="rules.people"></v-text-field>
+                                </v-col>
+                                <v-col>
+                                    <v-text-field v-model="newEvent.starts" label="Starts (24h)" type="number" :rules="rules.times"></v-text-field>
+                                </v-col>
+                                <v-col>
+                                    <v-text-field v-model="newEvent.ends" label="Ends (24h)" type="number" :rules="rules.times"></v-text-field>
+                                </v-col>
+                            <v-btn
+                                outlined
+                                rounded
+                                @click="inputEvent"
+                                :color="eventsManual.length ? 'blue' : 'black'"
+                                :disabled="!validateEvent"
+                                class="mt-3 ml-2"
+                            >
+                            Add Event
+                            </v-btn>
                         </v-card>
                     </v-container>
                 </v-expansion-panel-content>
@@ -219,16 +273,7 @@
             </v-expansion-panel>
         </v-expansion-panels>
         <!-- Imports inputted rooms and events into the page -->
-        <v-btn
-            outlined
-            rounded
-            @click="inputData"
-            :color="roomsFile || eventsFile || roomsManual.length || eventsManual.length ? 'blue' : 'black'"
-            :disabled="!validateInput"
-            class="mt-3 ml-2"
-        >
-            <v-icon class="pr-2">mdi-application-import</v-icon>Import
-        </v-btn>
+        
     </v-navigation-drawer>
     <!-- Solution page -->
     <span v-if="currentPage == 'Solution'"><v-container fluid><v-row class="fill-width">
@@ -324,7 +369,19 @@ export default {
             opens: 0,
             closes: 24,
         },
+        newRoom: {
+            name: '',
+            capacity: -1,
+            opens: 0,
+            closes: 24,
+        },
         editEvent: {                // The values of the event being edited
+            name: '',
+            attendance: -1,
+            starts: 0,
+            ends: 24,
+        },
+        newEvent: {
             name: '',
             attendance: -1,
             starts: 0,
@@ -349,7 +406,7 @@ export default {
         roomsFile: null,            // The room file being uploaded
         eventsFile: null,           // The event file being uploaded
         roomsManual: [],            // Will hold room items being added manually
-        eventsManual: [],           // Will gold event items being added manually
+        eventsManual: [],           // Will hold event items being added manually
         solution: null,             // Holds a list of room items with lists of event items inside
         unassignedEvents: [],       // Holds list of unassigned event objects
     }),
@@ -495,6 +552,9 @@ export default {
         },
         inputData() {
             // Inputs data into the data table. Loads data from files if necessary and from manual input if necessary
+            /*
+            Check for manual inputs, input them into the table, clear the manual input
+            */
             if (this.roomsFile || this.eventsFile) {
                 // Create a formdata to hold the files
                 var formData = new FormData()
@@ -528,13 +588,44 @@ export default {
                     }
                     this.roomsFile = null
                     this.eventsFile = null
+                    this.inputOpen = false
                 }).catch(error => {
                     // Check if an error occured in the http request
                     this.error = true
                     this.errorText = error
                 })
             }
-            this.inputOpen = false
+        },
+        inputRoom() { 
+
+        //create new Room object and add to rooms on page, clear input fields 
+            var newRoom = {
+                name: this.newRoom.name,
+                capacity: this.newRoom.capacity,
+                opens: this.newRoom.opens,
+                closes: this.newRoom.closes
+            }
+            this.roomsData.push(newRoom)
+            this.newRoom.name = ''
+            this.newRoom.capacity = -1
+            this.newRoom.opens = 0
+            this.newRoom.closes = 24
+
+        },
+        inputEvent(){
+        //create new Event object and add to events on page, clear input fields 
+            var newEvent = {
+                name: this.newEvent.name,
+                capacity: this.newEvent.attendance,
+                starts: this.newEvent.starts,
+                ends: this.newEvent.ends
+            }
+            this.eventsData.push(newEvent)
+            this.newEvent.name = ''
+            this.newEvent.attendance = -1
+            this.newEvent.starts = 0
+            this.newEvent.ends = 24
+
         },
         decimalToTime(decimal) {
             /*
@@ -631,7 +722,32 @@ export default {
             * Returns-
             * (bool):       whether the data input into the input nav drawer is valid
             */
+           
+           /*
+           check inputs to see if they exist qnd are valid
+           */
+          
             return this.roomsFile || this.eventsFile
+        },
+        validateEvent(){
+            var manualEvent = true
+            //check if inputs exist and are within parameters
+            if(this.newEvent.name == "" || this.newEvent.attendance <= 0 || this.newEvent.starts < 0 || this.newEvent.ends < 0 ){
+              manualEvent = false
+          }
+
+          return manualEvent
+
+        },
+        validateRoom(){
+            var manualRoom = true
+
+            //check if inputs exist and are within parameters
+
+            if(this.newRoom.name == "" || this.newRoom.capacity <= 0 || this.newRoom.opens < 0|| this.newRoom.closes < 0){
+                manualRoom = false
+            }
+            return manualRoom
         },
         validateEdit() {
             /*
