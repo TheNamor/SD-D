@@ -185,16 +185,6 @@
                             <v-file-input label="Upload Rooms" :accept="fileTypes" v-model="roomsFile"></v-file-input>
                             <v-spacer></v-spacer>
                             <v-file-input label="Upload Events" :accept="fileTypes" v-model="eventsFile"></v-file-input>
-                            <v-btn
-                                outlined
-                                rounded
-                                @click="inputData"
-                                :color="roomsFile || eventsFile || roomsManual.length || eventsManual.length ? 'blue' : 'black'"
-                                :disabled="!validateInput"
-                                class="mt-3 ml-2"
-                            >
-                                <v-icon class="pr-2">mdi-application-import</v-icon>Import
-                            </v-btn>
                         </v-card>
                     </v-container>
                 </v-expansion-panel-content>
@@ -202,35 +192,30 @@
             <!-- Expansion panel where you can manually input rooms -->
             <v-expansion-panel>
                 <v-divider></v-divider>
-                <v-expansion-panel-header>Input Rooms Manually</v-expansion-panel-header>
+                <v-expansion-panel-header :disable-icon-rotate="panelIcon(1) == 'mdi-check'">Input Rooms Manually
+                    <template v-slot:actions><v-icon :color="panelIcon(1) == 'mdi-check' ? 'green' : ''">{{panelIcon(1)}}</v-icon></template>
+                </v-expansion-panel-header>
                 <v-expansion-panel-content>
                     <v-container>
                         <v-card flat>
                             <v-card-title>Room Input Form</v-card-title>
-                    <!--<v-container v-if="whichDialog == 'room'"><v-row class="mt-5">-->
-                                <v-col>
+                            <v-container>
+                                <v-row><v-col>
                                     <v-text-field v-model="newRoom.name" label="Room name" :rules="rules.names"></v-text-field>
                                 </v-col>
                                 <v-col>
                                     <v-text-field v-model="newRoom.capacity" label="Capacity" type="number" :rules="rules.people"></v-text-field>
-                                </v-col>
-                                <v-col>
+                                </v-col></v-row>
+                                <v-row><v-col>
                                     <v-text-field v-model="newRoom.opens" label="Opens (24h)" type="number" :rules="rules.times"></v-text-field>
                                 </v-col>
                                 <v-col>
                                     <v-text-field v-model="newRoom.closes" label="Closes (24h)" type="number" :rules="rules.times"></v-text-field>
-                                </v-col>
-                    <!--</v-row></v-container>-->
-                            <v-btn
-                                outlined
-                                rounded
-                                @click="inputRoom"
-                                :color="roomsManual.length ? 'blue' : 'black'"
-                                :disabled="!validateRoom"
-                                class="mt-3 ml-2"
-                            >
-                            Add Room
-                            </v-btn>
+                                </v-col></v-row>
+                                <v-row><v-col>
+                                    <v-text-field v-model="newRoom.amount" label="How many to add" type="number" :rules="rules.people"></v-text-field>
+                                </v-col></v-row>
+                            </v-container>
                         </v-card>
                     </v-container>
                 </v-expansion-panel-content>
@@ -239,33 +224,30 @@
             <!-- Expansion panel where you can manually input events -->
             <v-expansion-panel>
                 <v-divider></v-divider>
-                <v-expansion-panel-header>Input Events Manually</v-expansion-panel-header>
+                <v-expansion-panel-header :disable-icon-rotate="panelIcon(2) == 'mdi-check'">Input Events Manually
+                    <template v-slot:actions><v-icon :color="panelIcon(2) == 'mdi-check' ? 'green' : ''">{{panelIcon(2)}}</v-icon></template>
+                </v-expansion-panel-header>
                 <v-expansion-panel-content>
                     <v-container>
                         <v-card flat>
                             <v-card-title>Event Input Form</v-card-title>
-                                <v-col>
+                            <v-container>
+                                <v-row><v-col>
                                     <v-text-field v-model="newEvent.name" label="Event name" :rules="rules.names"></v-text-field>
                                 </v-col>
                                 <v-col>
                                     <v-text-field v-model="newEvent.attendance" label="Attendance" type="number" :rules="rules.people"></v-text-field>
-                                </v-col>
-                                <v-col>
+                                </v-col></v-row>
+                                <v-row><v-col>
                                     <v-text-field v-model="newEvent.starts" label="Starts (24h)" type="number" :rules="rules.times"></v-text-field>
                                 </v-col>
                                 <v-col>
                                     <v-text-field v-model="newEvent.ends" label="Ends (24h)" type="number" :rules="rules.times"></v-text-field>
-                                </v-col>
-                            <v-btn
-                                outlined
-                                rounded
-                                @click="inputEvent"
-                                :color="eventsManual.length ? 'blue' : 'black'"
-                                :disabled="!validateEvent"
-                                class="mt-3 ml-2"
-                            >
-                            Add Event
-                            </v-btn>
+                                </v-col></v-row>
+                                <v-row><v-col>
+                                    <v-text-field v-model="newEvent.amount" label="How many to add" type="number" :rules="rules.people"></v-text-field>
+                                </v-col></v-row>
+                            </v-container>
                         </v-card>
                     </v-container>
                 </v-expansion-panel-content>
@@ -273,7 +255,16 @@
             </v-expansion-panel>
         </v-expansion-panels>
         <!-- Imports inputted rooms and events into the page -->
-        
+        <v-btn
+            outlined
+            rounded
+            @click="inputData"
+            :color="validateInput ? 'blue' : 'black'"
+            :disabled="!validateInput"
+            class="mt-3 ml-2"
+        >
+            <v-icon class="pr-2">mdi-application-import</v-icon>Import
+        </v-btn>
     </v-navigation-drawer>
     <!-- Solution page -->
     <span v-if="currentPage == 'Solution'"><v-container fluid><v-row class="fill-width">
@@ -374,6 +365,7 @@ export default {
             capacity: -1,
             opens: 0,
             closes: 24,
+            amount: 1,
         },
         editEvent: {                // The values of the event being edited
             name: '',
@@ -386,6 +378,7 @@ export default {
             attendance: -1,
             starts: 0,
             ends: 24,
+            amount: 1,
         },
         rules: {                    // Different validation rules for the editing dialog
             names: [v => v.length > 0 || "Name Required"],
@@ -437,6 +430,10 @@ export default {
             switch(panel) {
                 case 0:
                     return this.openPanels.includes(0) ? 'mdi-chevron-down' : ((this.roomsFile || this.eventsFile) ? 'mdi-check' : 'mdi-chevron-down')
+                case 1:
+                    return this.openPanels.includes(1) ? 'mdi-chevron-down' : ((this.validateRoom) ? 'mdi-check' : 'mdi-chevron-down')
+                case 2:
+                    return this.openPanels.includes(2) ? 'mdi-chevron-down' : ((this.validateEvent) ? 'mdi-check' : 'mdi-chevron-down')
                 default:
                     return 'mdi-chevron-down'
             }
@@ -552,9 +549,83 @@ export default {
         },
         inputData() {
             // Inputs data into the data table. Loads data from files if necessary and from manual input if necessary
-            /*
-            Check for manual inputs, input them into the table, clear the manual input
-            */
+            if (this.validateRoom) {
+                // Adds a new room from the manual input panel
+                var canExtendNumber = false
+                var stem = this.newRoom.name
+                var i, newName, number, diff
+                if (this.newRoom.amount > 1) {
+                    for (i=0; i<this.newRoom.name.length; i++) {
+                        if (!isNaN(parseInt(this.newRoom.name.slice(i)))) {
+                            canExtendNumber = true
+                            stem = this.newRoom.name.slice(0, i)
+                            number = parseInt(this.newRoom.name.slice(i))
+                            diff = this.newRoom.name.slice(i).length - String(number).length
+                            if (diff > 0) {
+                                stem = stem + " ".repeat(diff)
+                            }
+                            break
+                        }
+                    }
+                }
+                for (i=0; i<this.newRoom.amount; i++) {
+                    if (canExtendNumber) {
+                        newName = stem + String(number + i)
+                    } else {
+                        newName = stem + (i > 0 ? (" (" + String(i+1) + ")") : "")
+                    }
+                    var newRoom = {
+                        name: newName,
+                        capacity: parseInt(this.newRoom.capacity),
+                        opens: parseFloat(this.newRoom.opens),
+                        closes: parseFloat(this.newRoom.closes)
+                    }
+                    this.roomsData.push(newRoom)
+                }
+                this.newRoom.name = ''
+                this.newRoom.capacity = -1
+                this.newRoom.opens = 0
+                this.newRoom.closes = 24
+                this.newRoom.amount = 1
+            }
+            if (this.validateEvent) {
+                // Adds a new event from the manual input panel
+                canExtendNumber = false
+                stem = this.newEvent.name
+                if (this.newEvent.amount > 1) {
+                    for (i=0; i<this.newEvent.name.length; i++) {
+                        if (!isNaN(parseInt(this.newEvent.name.slice(i)))) {
+                            canExtendNumber = true
+                            stem = this.newEvent.name.slice(0, i)
+                            number = parseInt(this.newEvent.name.slice(i))
+                            diff = this.newEvent.name.slice(i).length - String(number).length
+                            if (diff > 0) {
+                                stem = stem + " ".repeat(diff)
+                            }
+                            break
+                        }
+                    }
+                }
+                for (i=0; i<this.newEvent.amount; i++) {
+                    if (canExtendNumber) {
+                        newName = stem + String(number + i)
+                    } else {
+                        newName = stem + (i > 0 ? (" (" + String(i+1) + ")") : "")
+                    }
+                    var newEvent = {
+                        name: newName,
+                        attendance: parseInt(this.newEvent.attendance),
+                        starts: parseFloat(this.newEvent.starts),
+                        ends: parseFloat(this.newEvent.ends)
+                    }
+                    this.eventsData.push(newEvent)
+                }
+                this.newEvent.name = ''
+                this.newEvent.attendance = -1
+                this.newEvent.starts = 0
+                this.newEvent.ends = 24
+                this.newEvent.amount = 1
+            }
             if (this.roomsFile || this.eventsFile) {
                 // Create a formdata to hold the files
                 var formData = new FormData()
@@ -595,37 +666,6 @@ export default {
                     this.errorText = error
                 })
             }
-        },
-        inputRoom() { 
-
-        //create new Room object and add to rooms on page, clear input fields 
-            var newRoom = {
-                name: this.newRoom.name,
-                capacity: this.newRoom.capacity,
-                opens: this.newRoom.opens,
-                closes: this.newRoom.closes
-            }
-            this.roomsData.push(newRoom)
-            this.newRoom.name = ''
-            this.newRoom.capacity = -1
-            this.newRoom.opens = 0
-            this.newRoom.closes = 24
-
-        },
-        inputEvent(){
-        //create new Event object and add to events on page, clear input fields 
-            var newEvent = {
-                name: this.newEvent.name,
-                capacity: this.newEvent.attendance,
-                starts: this.newEvent.starts,
-                ends: this.newEvent.ends
-            }
-            this.eventsData.push(newEvent)
-            this.newEvent.name = ''
-            this.newEvent.attendance = -1
-            this.newEvent.starts = 0
-            this.newEvent.ends = 24
-
         },
         decimalToTime(decimal) {
             /*
@@ -722,36 +762,36 @@ export default {
             * Returns-
             * (bool):       whether the data input into the input nav drawer is valid
             */
-           
-           /*
-           check inputs to see if they exist qnd are valid
-           */
-          
-            return this.roomsFile || this.eventsFile
-        },
-        validateEvent(){
-            var manualEvent = true
-            //check if inputs exist and are within parameters
-            if(this.newEvent.name == "" || this.newEvent.attendance <= 0 || this.newEvent.starts < 0 || this.newEvent.ends < 0 ){
-              manualEvent = false
-          }
 
-          return manualEvent
-
+            return this.roomsFile || this.eventsFile || this.validateRoom || this.validateEvent
         },
         validateRoom(){
-            var manualRoom = true
-
-            //check if inputs exist and are within parameters
-
-            if(this.newRoom.name == "" || this.newRoom.capacity <= 0 || this.newRoom.opens < 0|| this.newRoom.closes < 0){
-                manualRoom = false
-            }
-            return manualRoom
+            /*
+            * Validates the input to the manual Room input
+            *
+            * Returns-
+            * (bool):       whether the manual Room input is valid or not
+            */
+            var manualRoom = this.newRoom
+            var opens = parseFloat(manualRoom.opens)
+            var closes = parseFloat(manualRoom.closes)
+            return manualRoom.name.length && parseInt(manualRoom.amount) > 0 && (parseInt(manualRoom.amount) == parseFloat(manualRoom.amount)) && (parseInt(manualRoom.capacity) === parseFloat(manualRoom.capacity)) && parseFloat(manualRoom.capacity) > 0 && 0 <= opens && 24 >= opens && 0 <= closes && 24 >= closes && opens < closes
+        },
+        validateEvent(){
+            /*
+            * Validates the input to the manual Event input
+            *
+            * Returns-
+            * (bool):       whether the manual Event input is valid or not
+            */
+            var manualEvent = this.newEvent
+            var starts = parseFloat(manualEvent.starts)
+            var ends = parseFloat(manualEvent.ends)
+            return manualEvent.name.length && parseInt(manualEvent.amount) > 0 && (parseInt(manualEvent.amount) == parseFloat(manualEvent.amount)) && (parseInt(manualEvent.attendance) === parseFloat(manualEvent.attendance)) && parseFloat(manualEvent.attendance) > 0 && 0 <= starts && 24 >= starts && 0 <= ends && 24 >= ends && starts < ends
         },
         validateEdit() {
             /*
-            * Valiates the input to the edit dialog
+            * Validates the input to the edit dialog
             *
             * Returns-
             * (bool):       whether the new values of the edited object are valid or not

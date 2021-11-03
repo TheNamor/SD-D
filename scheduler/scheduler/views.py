@@ -157,7 +157,7 @@ def schedule(request):
         time = 0.013 * 1.004**len(event_list)
         iterations = max(min(int(6/time), 400), 100)
         organizer = algorithm_I.Organizer()
-        solution, unassigned = organizer.algorithm_I.assign(room_list, event_list, iterations=iterations, swap_num=10, temperature=10, print_level="none")
+        solution, unassigned = organizer.assign(room_list, event_list, iterations=iterations, swap_num=10, temperature=10, print_level="none")
     except Exception as e:
         return HttpResponse(json.dumps({"error": "Assign Error: " + str(e), "solution": [], "unassigned": []}))
 
