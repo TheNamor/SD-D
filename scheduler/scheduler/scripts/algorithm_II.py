@@ -1,0 +1,263 @@
+"""
+This document contains the module that makes the best suggestions to encorporate unassigned rooms
+
+Authors:
+    Roman Nett
+
+"""
+
+class Suggester(object):
+
+    def __init__(self, rooms, unassigned):
+        """
+        Creates a suggester for a set of rooms and unassigned events
+
+        Arguments-
+        rooms (list):           list of rooms with assigned events
+        unassigned (list):      list of unassigned events
+        """
+        self.rooms = rooms
+        self.unassigned = sorted(unassigned)
+        self.capacity_tolerance = None
+        self.event_tolerance = None
+        self.event_length_tolerance = None
+        self.suggestions = []
+
+    def getShortest(self):
+        """
+        Returns the shortest unassigned event, for effeciency purposes - UNTESTED
+
+        Returns-
+        (float):        the length of the shortest event, in hours
+        """
+        return min([event.getLength() for event in self.unassigned])
+    
+    def checkMove(self, room, index, difference):
+        if abs(difference) > self.event_tolerance:
+            return False
+        move_by = difference
+        events = room.events
+        event = events[index]
+        new_start, new_end = event.starts + move_by, event.ends + move_by
+        valid_start = new_start >= room.opens and (index == 0 or new_start >= events[index-1].ends)
+        valid_end = new_end <= room.closes and (index == len(events)-1 or new_end <= events[index+1].starts)
+        return valid_start and valid_end
+    
+    def generate(self, capacity_tolerance=5, event_tolerance=0.5, event_length_tolerance=0.25, booster=0):
+        """
+        Generates a list of suggestions with quality scores that assign as many unassigned events as possible
+        Suggestions follow the form (score, suggestion, event(s), room)
+
+        Named Arguments-
+        capacity_tolerance (int)=5:             the maximum additional capacity that will be suggested
+        event_tolerance (float)=0.5:            the most an event will be suggested to be moved by
+        event_length_tolerance (float)=0.25:    the most an event's length will be suggested to be changed by
+        """
+        # Assigning parameters
+        self.capacity_tolerance = capacity_tolerance
+        self.event_tolerance = event_tolerance
+        self.event_length_tolerance = event_length_tolerance
+
+        # First check if more events can be fit in by changing the room capacities
+        for room in self.rooms:
+            room_list = [event for event in room.events]
+            new_suggestion = [55, ["capacity", 0], [], room]
+            assigned = True
+            # Continues looking for open spots until no events can fit in
+            while assigned and len(self.unassigned):
+                assigned = False
+                # For each unassigned event
+                for i in range(len(self.unassigned)):
+                    event = self.unassigned[i]
+                    # Skip events that have attendance above the allowed capacity
+                    if event.attendance > room.capacity + self.capacity_tolerance:
+                        continue
+                    # Add events to empty rooms
+                    if len(room_list) == 0:
+                        if event.starts >= room.opens and event.ends <= room.closes:
+                            room_list.append(event)
+                            if event.attendance-room.capacity > new_suggestion[1][1]:
+                                new_suggestion[1][1] = event.attendance-room.capacity
+                            new_suggestion[2].append(self.unassigned.pop(i))
+                            assigned = True
+                            break
+                    else:
+                        # Check before the first event
+                        if event.starts >= room.opens and event.ends <= room_list[0].starts:
+                            room_list.insert(0, event)
+                            if event.attendance-room.capacity > new_suggestion[1][1]:
+                                new_suggestion[1][1] = event.attendance-room.capacity
+                            new_suggestion[2].append(self.unassigned.pop(i))
+                            assigned = True
+                            break
+                        
+                        # Check in between each pair of events
+                        for j in range(len(room_list)-1):
+                            event_before = room_list[j]
+                            event_after = room_list[j+1]
+                            if event_before.ends <= event.starts and event.ends <= event_after.starts:
+                                room_list.insert(j+1, event)
+                                if event.attendance-room.capacity > new_suggestion[1][1]:
+                                    new_suggestion[1][1] = event.attendance-room.capacity
+                                new_suggestion[2].append(self.unassigned.pop(i))
+                                assigned = True
+                                break
+                        if assigned: break
+                        
+                        # Check after the last event
+                        if event.starts >= room_list[-1].ends and event.ends <= room.closes:
+                            room_list.append(event)
+                            if event.attendance-room.capacity > new_suggestion[1][1]:
+                                new_suggestion[1][1] = event.attendance-room.capacity
+                            new_suggestion[2].append(self.unassigned.pop(i))
+                            assigned = True
+                            break
+            
+            if len(new_suggestion[2]) > 0:
+                new_suggestion[0] += len(new_suggestion[2])
+                self.suggestions.append(new_suggestion)
+        
+        # Next check if events can be fit in by moving nearby event times
+        for room in self.rooms:
+            # Assuming only 1 extra event can get fit in per suggestion
+
+            # No need to check for empty rooms as those will have been filled by the capacity step
+            if len(room.events) == 0:
+                continue
+
+            # For each unassigned event
+            new_unassigned = []
+            for i in range(len(self.unassigned)):
+                event = self.unassigned[i]
+                assigned = False
+                # Skip events that have attendance above the allowed capacity
+                if event.attendance > room.capacity:
+                    new_unassigned.append(event)
+                    continue
+
+                # Check before the first event
+                difference = event.ends-room.events[0].starts
+                if event.starts >= room.opens and self.checkMove(room, 0, difference):
+                    self.suggestions.append([50-abs(difference), ("shift", 0, difference), [event], room])
+                    continue
+                
+                # Check in between each pair of events
+                for j in range(len(room.events)-1):
+                    event_before = room.events[j]
+                    event_after = room.events[j+1]
+                    before, after = event.starts >= event_before.ends, event.ends <= event_after.starts
+                    # If after event doesn't have to change, just move before event
+                    difference = event.starts - event_before.ends
+                    if not before and self.checkMove(room, j, difference) and after:
+                        self.suggestions.append([50-abs(difference), ("shift", j, difference), [event], room])
+                        assigned = True
+                        break
+                    # If before event does't have to change, just move after event
+                    difference = event.ends - event_after.starts
+                    if not after and self.checkMove(room, j+1, difference) and before:
+                        self.suggestions.append([50-abs(difference), ("shift", j+1, difference), [event], room])
+                        assigned = True
+                        break
+                    # Move both events if necessary
+                    difference_before = event.starts - event_before.ends
+                    difference_after = event.ends - event_after.starts
+                    if not after and not before and self.checkMove(room, j, difference_before) and self.checkMove(room, j+1, difference_after):
+                        self.suggestions.append([40-abs(difference_before)-abs(difference_after), ("shift", j, difference_before, j+1, difference_after), [event], room])
+                        assigned = True
+                        break
+                if assigned:
+                    continue
+                
+                # Check after the last event
+                difference = event.starts - room.events[-1].ends
+                if self.checkMove(room, len(room.events)-1, difference) and event.ends <= room.closes:
+                    self.suggestions.append([50-abs(difference), ("shift", -1, difference), [event], room])
+                    continue
+
+                new_unassigned.append(event)
+            self.unassigned = new_unassigned
+        
+        # Finally check if events can be fit by modifying nearby event lengths
+        for room in self.rooms:
+            # Assuming only 1 extra event can get fit in per suggestion
+
+            # No need to check for empty rooms as those will have been filled by the capacity step
+            if len(room.events) == 0:
+                continue
+
+            # For each unassigned event
+            new_unassigned = []
+            for i in range(len(self.unassigned)):
+                event = self.unassigned[i]
+                assigned = False
+                # Skip events that have attendance above the allowed capacity
+                if event.attendance > room.capacity:
+                    new_unassigned.append(event)
+                    continue
+
+                # Check before the first event
+                difference = event.ends-room.events[0].starts
+                if event.starts >= room.opens and event.ends < room.events[0].ends and abs(difference) <= self.event_length_tolerance:
+                    self.suggestions.append([45-abs(difference), ("length", 0, difference), [event], room])
+                    continue
+                
+                # Check in between each pair of events
+                for j in range(len(room.events)-1):
+                    event_before = room.events[j]
+                    event_after = room.events[j+1]
+                    before, after = event.starts >= event_before.ends, event.ends <= event_after.starts
+                    # If after event doesn't have to change, just move before event
+                    difference = event.starts - event_before.ends
+                    if not before and event_before.starts < event.starts and after and abs(difference) <= self.event_length_tolerance:
+                        self.suggestions.append([45-abs(difference), ("length", j, difference), [event], room])
+                        assigned = True
+                        break
+                    # If before event does't have to change, just move after event
+                    difference = event.ends - event_after.starts
+                    if not after and event.ends < event_after.ends and before and abs(difference) <= self.event_length_tolerance:
+                        self.suggestions.append([45-abs(difference), ("length", j+1, difference), [event], room])
+                        assigned = True
+                        break
+                    # Move both events if necessary
+                    difference_before = event.starts - event_before.ends
+                    difference_after = event.ends - event_after.starts
+                    if not after and not before and event_before.starts < event.starts and event.ends < event_after.ends and abs(difference_before) <= self.event_length_tolerance and abs(difference_after) <= self.event_length_tolerance:
+                        self.suggestions.append([35-abs(difference_before)-abs(difference_after), ("length", j, difference_before, j+1, difference_after), [event], room])
+                        assigned = True
+                        break
+                if assigned:
+                    continue
+                
+                # Check after the last event
+                difference = event.starts - room.events[-1].ends
+                if room.events[-1].starts < event.starts and event.ends <= room.closes and abs(difference) <= self.event_length_tolerance:
+                    self.suggestions.append([45-abs(difference), ("length", -1, difference), [event], room])
+                    continue
+                new_unassigned.append(event)
+            self.unassigned = new_unassigned
+        
+        for suggestion in self.suggestions:
+            suggestion[0] += booster
+
+        return self.suggestions
+
+    def weightedGridSearch(self, parameters):
+
+        suggestions = []
+
+        for parameter in parameters:
+
+            if len(self.unassigned) == 0:
+                break
+
+            new_suggestions = self.generate(
+                capacity_tolerance=parameter[0],
+                event_tolerance=parameter[1],
+                event_length_tolerance=parameter[2],
+                booster=parameter[3]
+            )
+            
+            suggestions += new_suggestions
+            self.suggestions = []
+        
+        return sorted(suggestions, key=lambda x: (x[0], -x[1][-1]), reverse=True), self.unassigned
