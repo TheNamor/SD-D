@@ -21,5 +21,6 @@ from scheduler import views
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('schedule', views.schedule),
-    path('upload', views.upload)
+    path('upload', views.upload),
+    path('suggest', views.suggest)
 ]

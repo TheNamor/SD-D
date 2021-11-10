@@ -2,7 +2,7 @@ from django.http import HttpResponse
 
 import json, base64
 from requests_toolbelt.multipart import decoder
-from .scripts import algorithm_I, csv_parser, tsv_parser, xlsx_parser, json_parser, txt_parser
+from .scripts import algorithm_I, csv_parser, tsv_parser, xlsx_parser, json_parser, txt_parser, algorithm_II
 
 
 def upload(request):
@@ -147,11 +147,15 @@ def schedule(request):
     room_list = []
     event_list = []
 
+    room_id = 0
     for room in body.get("rooms", []):
-        room_list.append(algorithm_I.Room(room.get("name", ""), int(room.get("capacity", 1)), float(room.get("opens", -1)), float(room.get("closes", 24))))
+        room_list.append(algorithm_I.Room(room.get("name", ""), int(room.get("capacity", 1)), float(room.get("opens", -1)), float(room.get("closes", 24)), id=room_id))
+        room_id += 1
 
+    event_id = 0
     for event in body.get("events", []):
-        event_list.append(algorithm_I.Event(event.get("name", ""), float(event.get("starts", 0)), float(event.get("ends", 24)), int(event.get("attendance", 1))))
+        event_list.append(algorithm_I.Event(event.get("name", ""), float(event.get("starts", 0)), float(event.get("ends", 24)), int(event.get("attendance", 1)), id=event_id))
+        event_id += 1
 
     try:
         time = 0.013 * 1.004**len(event_list)
@@ -162,3 +166,120 @@ def schedule(request):
         return HttpResponse(json.dumps({"error": "Assign Error: " + str(e), "solution": [], "unassigned": []}))
 
     return HttpResponse(json.dumps({"solution": [room.export() for room in solution], "unassigned": [event.export() for event in unassigned]}))
+
+def suggest(request):
+
+    body = json.loads(request.body)
+
+    room_list = []
+    unassigned = []
+
+    for room in body.get("rooms", []):
+        new_room = algorithm_I.Room(room.get("name", ""), int(room.get("capacity", 1)), float(room.get("opens", -1)), float(room.get("closes", 24)), id=int(room.get("id", 0)))
+        for event in room.get("events", []):
+            new_room.events.append(algorithm_I.Event(event.get("name", ""), float(event.get("starts", 0)), float(event.get("ends", 24)), int(event.get("attendance", 1)), id=int(event.get("id", 0))))
+        room_list.append(new_room)
+
+    for event in body.get("unassigned", []):
+        unassigned.append(algorithm_I.Event(event.get("name", ""), float(event.get("starts", 0)), float(event.get("ends", 24)), int(event.get("attendance", 1)), id=int(event.get("id", 0))))
+
+    parameters = [(5, 0, 0, 400), (10, 0.5, 0, 300), (20, 1, 0, 200), (30, 3, 0.25, 100), (40, 10, 0.25, 0)]
+
+    suggester = algorithm_II.Suggester(room_list, unassigned)
+
+    suggestions, still_unassigned = suggester.weightedGridSearch(parameters)
+
+    suggestion_out = []
+
+    for i in range(len(suggestions)):
+        suggestion = suggestions[i]
+        # If we suggest to change the capacity
+        if suggestion[1][0] == "capacity":
+            # String to show to the user describing the suggestion
+            suggest_string = "Add to room \"" + suggestion[3].name + "\" by increasing capacity by " + str(suggestion[1][1])
+            # Unassigned events for this suggestions
+            events = [event.export() for event in suggestion[2]]
+            # Modify room
+            room = suggestion[3]
+            room.capacity += suggestion[1][1]
+            for event in suggestion[2]:
+                room.events.append(event)
+            for event in events:
+                suggestion_out.append({
+                    "suggestion_id": i,
+                    "suggestion_string": suggest_string,
+                    "unassigned": event,
+                    "room": room.export(),
+                    "changed_events": dict()
+                })
+        # If we suggest to shift events
+        elif suggestion[1][0] == "shift":
+            # String to show to the user describing the suggestion
+            suggest_string = "Add to room \"" + suggestion[3].name + "\""
+            room = suggestion[3]
+            # Dictionary mapping to changed events
+            changed_events = dict()
+            # For each shifted event
+            for j in range(len(suggestion[1][1:])//2):
+                # Shift the event appropriately and add it to the map
+                current_event = room.events[suggestion[1][1:][j]].copy()
+                if not current_event.moveBy(suggestion[1][1:][j+1]):
+                    return HttpResponse(json.dumps({"error": "Invalid shift suggestion: " + str(suggestion), "suggestions": []}))
+                changed_events[current_event.id] = current_event.export()
+                # Build the string
+                if j != 0:
+                    suggest_string += " and "
+                suggest_string += " by shifting event \"" + current_event.name + "\" by " + str(abs(suggestion[1][1:][j+1])) + " hours"
+            # Unassigned events for this suggestion
+            events = suggestion[2][0].export()
+            # Modify room
+            for event in suggestion[2]:
+                room.events.append(event)
+            suggestion_out.append({
+                "suggestion_id": i,
+                "suggestion_string": suggest_string,
+                "unassigned": events,
+                "room": room.export(),
+                "changed_events": changed_events
+            })
+        # If we suggest to shorten events
+        elif suggestion[1][0] == "length":
+            # String to show to the user describing the suggestion
+            suggest_string = "Add to room \"" + suggestion[3].name
+            room = suggestion[3]
+            # Dictionary mapping to changed events
+            changed_events = dict()
+            # For each shortened event
+            for j in range(len(suggestion[1][1:])//2):
+                # Shorten the event appropriately and add it to the map
+                current_event = room.events[suggestion[1][1:][j]]
+                if not current_event.shortenBy(suggestion[1][1:][j+1]):
+                    return HttpResponse(json.dumps({"error": "Invalid length suggestion: " + str(suggestion), "suggestions": []}))
+                changed_events[current_event.id] = current_event.export()
+                # Build the string
+                if j != 0:
+                    suggest_string += " and "
+                suggest_string += " by shortening event \"" + current_event.name + "\" by " + str(abs(suggestion[1][1:][j+1])) + " hours"
+            # Unassigned events for this suggestion
+            events = suggestion[2][0].export()
+            # Modify room
+            for event in suggestion[2]:
+                room.events.append(event)
+            suggestion_out.append({
+                "suggestion_id": i,
+                "suggestion_string": suggest_string,
+                "unassigned": events,
+                "room": room.export(),
+                "changed_events": changed_events
+            })
+    
+    for event in still_unassigned:
+        suggestion_out.append({
+            "suggestion_id": len(suggestions),
+            "suggestion_string": "No suggestion available",
+            "unassigned": event.export(),
+            "room": None,
+            "changed_events": dict()
+        })
+    
+    return HttpResponse(json.dumps({"suggestions": suggestion_out}))

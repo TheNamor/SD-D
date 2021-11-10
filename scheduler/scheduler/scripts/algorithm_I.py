@@ -26,7 +26,7 @@ class Room(object):
     events (list):      list of events assigned to the room
     """
 
-    def __init__(self, name, capacity, opens=-1, closes=24):
+    def __init__(self, name, capacity, opens=-1, closes=24, id=0):
         """
         Creates a new Room instance
 
@@ -38,6 +38,7 @@ class Room(object):
         opens (float)=-1:    the 24h decimal representation of when the room opens, -1 shows always open
         closes (float)=24:   the 24h decimal representation of when the room closes, 24 shows never closes
         """
+        self.id = id
         self.name = name
         self.capacity = capacity
         self.opens = opens
@@ -65,7 +66,7 @@ class Event(object):
     attendance (int):   the maximum number of people attending the event
     """
 
-    def __init__(self, name, starts, ends, attendance):
+    def __init__(self, name, starts, ends, attendance, id=0):
         """
         Creates a new Event instance
 
@@ -75,6 +76,7 @@ class Event(object):
         ends (float):       the 24h decimal representation of when the class ends
         attendance (int):   the maximum number of people attending the event
         """
+        self.id = id
         self.name = name
         self.starts = starts
         self.ends = ends
@@ -97,6 +99,70 @@ class Event(object):
             return (self.ends - self.starts) > (other.ends - other.starts)
         return self.starts < other.starts
     
+    def copy(self):
+        """
+        Copies the current event object
+
+        Returns-
+        (Event):        copy of the event
+        """
+        return Event(self.name, self.starts, self.ends, self.attendance, id=self.id)
+    
+    def getLength(self):
+        """
+        The length of the event in hours getter
+
+        Returns-
+        (float):        the length of the event in hours
+        """
+        return self.ends - self.starts
+    
+    def moveBy(self, change):
+        """
+        Moves the event by the specified amount
+
+        Arguments-
+        change (float):     the number of hours to move by
+
+        Returns-
+        (bool):     bool whether the change was successfully made and valid
+        """
+
+        if self.starts+change < 0 or self.starts+change > 24:
+            return False
+        if self.ends+change < 0 or self.ends+change > 24:
+            return False
+        
+        self.starts += change
+        self.ends += change
+
+        return True
+    
+    def shortenBy(self, change):
+        """
+        Shortens the event by the specified amount
+
+        Arguments-
+        change (float):     amount to shorten the event by, negative will change the ends, positive will change the starts
+
+        Returns-
+        (bool):     whether the shorten was successfully made and valid
+        """
+
+        if change == 0:
+            return False
+
+        if change > 0:
+            if self.starts+change >= self.ends or self.starts+change > 24:
+                return False
+            self.starts += change
+            return True
+        else:
+            if self.ends+change <= self.starts or self.ends+change < 0:
+                return False
+            self.ends += change
+            return True
+    
     def export(self):
         """
         Transforms the object into a dictionary for exporting to the frontend
@@ -104,7 +170,7 @@ class Event(object):
         Returns-
         (dict):     dictionary of the object's properties
         """
-        return {"name": self.name, "attendance": self.attendance, "starts": self.starts, "ends": self.ends}
+        return {"name": self.name, "attendance": self.attendance, "starts": self.starts, "ends": self.ends, "id": self.id}
 
 class Organizer(object):
 
@@ -306,6 +372,8 @@ def printEvents(events):
         print("\t", event.name, "(" + str(event.starts), "-", str(event.ends) + ")", event.attendance)
 
 if __name__ == "__main__":
+    import algorithm_II
+    
     random.seed(100)
     big_rooms = []
     big_events = []
@@ -325,3 +393,14 @@ if __name__ == "__main__":
     rooms, unassigned = organizer.assign(big_rooms, big_events, iterations=400, swap_num=10, temperature=10, print_level="epoch")
 
     print(str((100-(len(unassigned)/num_events)*100))+"% Assigned")
+
+    suggester = algorithm_II.Suggester(rooms, unassigned)
+
+    parameters = [(5, 0, 0, 400), (10, 0.5, 0.25, 300), (20, 1, 0.25, 200), (30, 2, 0.5, 100), (40, 4, 0.75, 0)]
+    
+    suggestions, still_unassigned = suggester.weightedGridSearch(parameters)
+
+    for suggestion in suggestions:
+        print(suggestion[0], suggestion[1])
+    
+    print("\n" + str(len(still_unassigned)), len(suggestions), len(unassigned)-len(suggestions))
