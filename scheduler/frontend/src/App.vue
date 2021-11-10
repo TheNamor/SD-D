@@ -299,15 +299,34 @@
     </v-row></v-container>
     <v-container>
         <v-card flat>
-            <v-card-title>Unassigned Events</v-card-title>
+            <v-card-title>Suggestions</v-card-title>
             <v-data-table
-                :headers="eventsHeaders"
-                :items="unassignedEvents"
+                :headers="suggestionHeaders"
+                :items="suggestions"
                 :items-per-page="-1"
+                group-by="suggestion_id"
                 hide-default-footer
                 :loading="loading"
                 no-data-text="No unassigned events"
             >
+            <template v-slot:[`group.header`]="{items, isOpen, toggle}">
+                <th colspan="4" style="fontSize: 15px; padding-top: 10px;">
+                    <v-icon @click="toggle"
+                        >{{ isOpen ? 'mdi-minus' : 'mdi-plus' }}
+                    </v-icon>
+                    {{ items[0].suggestion_string }}
+                    <v-btn
+                        outlined
+                        rounded
+                        @click="completeSuggestion(items[0].suggestion_id)"
+                        class="ml-2"
+                        style="float: right; margin-top: -6px"
+                        :disabled="true"
+                    >
+                        <v-icon class="pr-2">mdi-application-cog-outline</v-icon>Complete
+                    </v-btn>
+                </th>
+            </template>
             </v-data-table>
         </v-card>
     </v-container>
@@ -347,6 +366,13 @@ export default {
             {text: "Starts (24h)", value: "starts", sortable: true},
             {text: "Ends (24h)", value: "ends", sortable: true},
             {text: "Actions", value: "actions", sortable: false},
+        ],
+        suggestionHeaders: [        // The headers for the unassigned events suggestions
+            {text: "", value: "suggestion_id", sortable: true, align: "start"},
+            {text: "Name", value: "unassigned.name", sortable: false},
+            {text: "Attendance", value: "unassigned.attendance", sortable: false},
+            {text: "Starts (24h)", value: "unassigned.starts", sortable: false},
+            {text: "Ends (24h)", value: "unassigned.ends", sortable: false},
         ],
         openPanels: [0],            // Which expansion panels are open currently in the input nav drawer
         whichDialog: "",            // Which table has an open edit/delete dialog. Either "room" or "event"
@@ -388,10 +414,8 @@ export default {
             ],
             times: [v => (parseFloat(v) >= 0 && parseFloat(v) <= 24) || "Time must be between 0 and 24"]
         },
-        roomsData: [                // Holds the room items (currently has toy data in)
-            {name: "Room 1",  capacity: 30, opens: 10, closes: 15}, {name: "Room2",  capacity: 25, opens: 12, closes: 17}, {name: "Room 3",  capacity: 15, opens: 8, closes: 15}],
-        eventsData: [               // Holds the event items (currently has toy data in)
-            {name: "Event 1", attendance: 16, starts: 8, ends: 12}, {name: "Event 2", attendance: 23, starts: 14, ends: 17}, {name: "Event 3", attendance: 28, starts: 12, ends: 15}, {name: "Event 4", attendance: 23, starts: 10, ends: 11.5}],
+        roomsData: [],              // Holds the room items (currently has toy data in)
+        eventsData: [],             // Holds the event items (currently has toy data in)
         fileTypes: ".json,.csv,.tsv,.txt,.xlsx",    // Supported file types
         colors: [                   // Different colors the events can be, chosen randomly
             "red", "pink", "purple", "deep-purple", "indigo", "blue", "light-blue", "cyan", "teal", "green", "light-green", "lime", "amber", "orange", "deep-orange", "brown", "blue-grey"
@@ -401,6 +425,7 @@ export default {
         roomsManual: [],            // Will hold room items being added manually
         eventsManual: [],           // Will hold event items being added manually
         solution: null,             // Holds a list of room items with lists of event items inside
+        suggestions: [],            // Holds list of suggestions made by algorithm II
         unassignedEvents: [],       // Holds list of unassigned event objects
     }),
 
@@ -488,6 +513,7 @@ export default {
             }
             this.editOpen = false
             this.editIndex = -1
+            this.solution = null
         },
         deleteItem(item, which) {
             /*
@@ -514,6 +540,7 @@ export default {
             }
             this.deleteOpen = false
             this.deleteIndex = -1
+            this.solution = null
         },
         closeDelete() {
             // Closes the delete dialog
@@ -523,6 +550,8 @@ export default {
         callAlgorithm() {
             //Calls the backend to schedule events into rooms and changes the page to the solution page
             this.loading = true
+            this.solution = []
+            this.unassignedEvents = []
             axios({
                 // Call the backend /schedule url
                 method: "post",
@@ -537,6 +566,7 @@ export default {
                 }
                 this.solution = r.data.solution
                 this.unassignedEvents = r.data.unassigned
+                this.getSuggestions()
                 this.changePage("Solution")
             }).catch(error => {
                 // Check if an error occured in the http request
@@ -546,6 +576,35 @@ export default {
                 // Finished loading
                 this.loading = false
             })
+        },
+        getSuggestions() {
+            // Calls the backend to get suggestions from algorithm II
+            this.loading = true
+            this.suggestions = []
+            axios({
+                // Call the backend /suggest url
+                method: "post",
+                url: "http://" + this.host + ":8000/suggest",
+                data: {rooms: this.solution, unassigned: this.unassignedEvents}
+            }).then( r=> {
+                // Check if an error occured, otherwise set the solution
+                if ("error" in r.data) {
+                    this.error = true
+                    this.errorText = r.data.error
+                    return
+                }
+                this.suggestions = r.data.suggestions
+            }).catch(error => {
+                // Check if an error occured in the http request
+                this.error = true
+                this.errorText = error
+            }).finally(() => {
+                // Finished loading
+                this.loading = false
+            })
+        },
+        completeSuggestion(suggestion_id) {
+            return suggestion_id
         },
         inputData() {
             // Inputs data into the data table. Loads data from files if necessary and from manual input if necessary
