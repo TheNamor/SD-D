@@ -652,6 +652,7 @@ export default {
                 var stem = this.newRoom.name
                 var i, newName, number, diff
                 if (this.newRoom.amount > 1) {
+                    // Check for a number on the end of the name
                     for (i=0; i<this.newRoom.name.length; i++) {
                         if (!isNaN(parseInt(this.newRoom.name.slice(i)))) {
                             canExtendNumber = true
@@ -665,7 +666,9 @@ export default {
                         }
                     }
                 }
+                // For each copy of new room
                 for (i=0; i<this.newRoom.amount; i++) {
+                    // Extend room name stem
                     if (canExtendNumber) {
                         newName = stem + String(number + i)
                     } else {
@@ -690,6 +693,7 @@ export default {
                 canExtendNumber = false
                 stem = this.newEvent.name
                 if (this.newEvent.amount > 1) {
+                    // Check for a number on the end of the name
                     for (i=0; i<this.newEvent.name.length; i++) {
                         if (!isNaN(parseInt(this.newEvent.name.slice(i)))) {
                             canExtendNumber = true
@@ -703,7 +707,9 @@ export default {
                         }
                     }
                 }
+                // For each copy of new event
                 for (i=0; i<this.newEvent.amount; i++) {
+                    // Extend event name stem
                     if (canExtendNumber) {
                         newName = stem + String(number + i)
                     } else {

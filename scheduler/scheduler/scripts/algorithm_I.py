@@ -10,6 +10,7 @@ Ver 1- (iterations=100, swap_num=10, temperature=10)
 Ver 2- (iterations=100, swap_num=10, temperature=10)
     Accuracy ~ 87%
     Time per iteration ~ 0.0007
+Add baseline!
 """
 
 import random, math
@@ -44,6 +45,15 @@ class Room(object):
         self.opens = opens
         self.closes = closes
         self.events = []
+    
+    def copy(self):
+        """
+        Copies the current room object
+
+        Returns-
+        (Room):        copy of the room
+        """
+        return Room(self.name, self.capacity, self.opens, self.closes, id=self.id)
     
     def export(self):
         """

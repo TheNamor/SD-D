@@ -232,7 +232,7 @@ def suggest(request):
                 room = suggestion[3]
                 room.capacity += suggestion[1][1]
                 # Just capacity change
-                if len(suggestion[1][0]) == 2:
+                if len(suggestion[1]) == 2:
                     for event in suggestion[2]:
                         room.events.append(event)
                     room.events.sort()
@@ -245,6 +245,7 @@ def suggest(request):
                             "room": room.export(),
                             "changed_events": dict()
                         })
+                    continue
                 else:
                     suggest_string += " and"
                     suggestion[1] = suggestion[1][2:]
