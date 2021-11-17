@@ -53,7 +53,7 @@ class Room(object):
         (dict):     dictionary of the object's properties
         """
         event_dicts = [event.export() for event in self.events]
-        return {"name": self.name, "capacity": self.capacity, "opens": self.opens, "closes": self.closes, "events": event_dicts}
+        return {"name": self.name, "capacity": self.capacity, "opens": self.opens, "closes": self.closes, "events": event_dicts, "id": self.id}
 
 class Event(object):
     """
