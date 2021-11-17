@@ -299,6 +299,7 @@
     </v-row></v-container>
     <v-container>
         <v-card flat>
+            <!-- Table with list of unassigned events and suggestions on how to fix -->
             <v-card-title>Suggestions</v-card-title>
             <v-data-table
                 :headers="suggestionHeaders"
@@ -321,7 +322,7 @@
                         @click="completeSuggestion(items[0].suggestion_id)"
                         class="ml-2"
                         style="float: right; margin-top: -6px"
-                        :disabled="true"
+                        :disabled="items[0].suggestion_string == 'No suggestion available'"
                     >
                         <v-icon class="pr-2">mdi-application-cog-outline</v-icon>Complete
                     </v-btn>
@@ -386,7 +387,7 @@ export default {
             opens: 0,
             closes: 24,
         },
-        newRoom: {
+        newRoom: {                  // The values of a room being manually input
             name: '',
             capacity: -1,
             opens: 0,
@@ -399,7 +400,7 @@ export default {
             starts: 0,
             ends: 24,
         },
-        newEvent: {
+        newEvent: {                 // The values of an event being manually input
             name: '',
             attendance: -1,
             starts: 0,
@@ -579,8 +580,11 @@ export default {
         },
         getSuggestions() {
             // Calls the backend to get suggestions from algorithm II
-            this.loading = true
             this.suggestions = []
+            if (this.unassignedEvents.length == 0) {
+                return
+            }
+            this.loading = true
             axios({
                 // Call the backend /suggest url
                 method: "post",
@@ -604,7 +608,41 @@ export default {
             })
         },
         completeSuggestion(suggestion_id) {
-            return suggestion_id
+            /*
+            * Completes the suggestion automatically
+            * 
+            * Arguments-
+            * suggestion_id (int):      index of the suggestion that was clicked on
+            */
+            var suggestion = this.suggestions[suggestion_id]
+            // Update any events that are changed in events data
+            for (var index in suggestion.changed_events) {
+                this.eventsData[index] = suggestion.changed_events[index]
+            }
+            // Update any changed events in the room's event list
+            var newList = []
+            for (var i=0; i<suggestion.room.events.length; i++) {
+                var newEvent = suggestion.room.events[i]
+                newList.push(this.eventsData[newEvent.id])
+            }
+            suggestion.room.events = newList
+            // Change the room in the solution and data to the changed room
+            this.solution[suggestion.room.id] = suggestion.room
+            this.roomsData[suggestion.room.id] = suggestion.room
+            // Remove unassigned events that got assigned by this suggestion
+            var nowAssignedIDs = []
+            if ("multiple" in suggestion) {
+                for (i=0; i<suggestion.multiple.length; i++) {
+                    nowAssignedIDs.push(suggestion.multiple[i].id)
+                }
+            } else {
+                nowAssignedIDs.push(suggestion.unassigned.id)
+            }
+            this.unassignedEvents = this.unassignedEvents.filter(event => !nowAssignedIDs.includes(event.id))
+            // Update solution calendars with splice()
+            this.solution.splice()
+            // Get new suggestions with new set of unassigned events
+            this.getSuggestions()
         },
         inputData() {
             // Inputs data into the data table. Loads data from files if necessary and from manual input if necessary
