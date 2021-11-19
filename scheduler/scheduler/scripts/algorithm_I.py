@@ -53,7 +53,9 @@ class Room(object):
         Returns-
         (Room):        copy of the room
         """
-        return Room(self.name, self.capacity, self.opens, self.closes, id=self.id)
+        new_room = Room(self.name, self.capacity, self.opens, self.closes, id=self.id)
+        new_room.events = [event for event in self.events]
+        return new_room
     
     def export(self):
         """

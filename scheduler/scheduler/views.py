@@ -84,6 +84,8 @@ def upload(request):
                 if not response is None:
                     return response
                 return HttpResponse(json.dumps({"error": str(rooms_name)+ " File Error: could not parse file, invalid delimeter", "rooms": [], "events": []}))
+        else:
+            return HttpResponse(json.dumps({"error": str(rooms_name)+ " File Error: invalid filetype: " + str(rooms_type.lower()), "rooms": [], "events": []}))
 
     if not events_file is None:
         # Use json, csv, xlsc, tsv parsers on their respective files
@@ -133,6 +135,8 @@ def upload(request):
                 if not response is None:
                     return response
                 return HttpResponse(json.dumps({"error": str(events_name)+ " File Error: could not parse file, invalid delimeter", "rooms": [], "events": []}))
+        else:
+            return HttpResponse(json.dumps({"error": str(events_name)+ " File Error: invalid filetype: " + str(events_type.lower()), "rooms": [], "events": []}))
 
     rooms_list = [] if rooms_list is None else rooms_list
     events_list = [] if events_list is None else events_list
@@ -210,7 +214,7 @@ def suggest(request):
         unassigned.append(algorithm_I.Event(event.get("name", ""), float(event.get("starts", 0)), float(event.get("ends", 24)), int(event.get("attendance", 1)), id=int(event.get("id", 0))))
 
     try:
-        parameters = [(5, 0.5, 0, 0, 400), (10, 1, 0.5, 0, 300), (20, 2, 1, 0, 200), (30, 5, 3, 0.25, 100), (40, 10, 10, 0.25, 0)]
+        parameters = [(5, 0.5, 0, 0, 400), (10, 1, 0.5, 0, 300), (20, 2, 1, 0, 200), (30, 5, 3, 0.25, 100), (40, 10, 10, 0.5, 0)]
 
         suggester = algorithm_II.Suggester(room_list, unassigned)
 
@@ -280,14 +284,14 @@ def suggest(request):
                 # For each shifted event
                 for j in range(len(suggestion[1][1:])//2):
                     # Shift the event appropriately and add it to the map
-                    current_event = room.events[suggestion[1][1:][j]].copy()
-                    if not current_event.moveBy(suggestion[1][1:][j+1]):
+                    current_event = room.events[suggestion[1][1:][j*2]].copy()
+                    if not current_event.moveBy(suggestion[1][1:][j*2+1]):
                         return HttpResponse(json.dumps({"error": "Invalid shift suggestion: " + str(suggestion), "suggestions": []}))
                     changed_events[current_event.id] = current_event.export()
                     # Build the string
                     if j != 0:
                         suggest_string += " and "
-                    suggest_string += " by shifting event \"" + current_event.name + "\" by " + str(abs(suggestion[1][1:][j+1])) + " hours"
+                    suggest_string += " by shifting event \"" + current_event.name + "\" by " + str(abs(suggestion[1][1:][j*2+1])) + " hours"
                 # Unassigned events for this suggestion
                 events = suggestion[2][0].export()
                 # Modify room
@@ -309,14 +313,14 @@ def suggest(request):
                 # For each shortened event
                 for j in range(len(suggestion[1][1:])//2):
                     # Shorten the event appropriately and add it to the map
-                    current_event = room.events[suggestion[1][1:][j]]
-                    if not current_event.shortenBy(suggestion[1][1:][j+1]):
+                    current_event = room.events[suggestion[1][1:][j*2]]
+                    if not current_event.shortenBy(suggestion[1][1:][j*2+1]):
                         return HttpResponse(json.dumps({"error": "Invalid length suggestion: " + str(suggestion), "suggestions": []}))
                     changed_events[current_event.id] = current_event.export()
                     # Build the string
                     if j != 0:
                         suggest_string += " and "
-                    suggest_string += " by shortening event \"" + current_event.name + "\" by " + str(abs(suggestion[1][1:][j+1])) + " hours"
+                    suggest_string += " by shortening event \"" + current_event.name + "\" by " + str(abs(suggestion[1][1:][j*2+1])) + " hours"
                 # Unassigned events for this suggestion
                 events = suggestion[2][0].export()
                 # Modify room

@@ -181,7 +181,7 @@
                     <v-container>
                         <v-card flat>
                             <v-card-title>Upload room and event files here</v-card-title>
-                            <v-card-text>Supported filetypes are: JSON, csv, tsv, xmls, and txt</v-card-text>
+                            <v-card-text>Supported filetypes are: JSON, csv, tsv, xlsx, and txt</v-card-text>
                             <v-file-input label="Upload Rooms" :accept="fileTypes" v-model="roomsFile"></v-file-input>
                             <v-spacer></v-spacer>
                             <v-file-input label="Upload Events" :accept="fileTypes" v-model="eventsFile"></v-file-input>

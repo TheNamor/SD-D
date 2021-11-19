@@ -4,6 +4,7 @@ import numpy as np
 
 time_data = []
 unassigned_data = []
+baseline_data = []
 
 def checkRooms(room_list):
     errors = 0
@@ -39,6 +40,9 @@ for n in range(500):
         length = random.randint(1, 2) + random.random()
         big_events.append(Event("Event " + str(i), start, start+length, random.randint(10, 30)))
 
+    # Find the greedy solution
+    greedy_solution, greedy_unassigned = organizer.findSolution(big_rooms, big_events.copy())
+
     # Find the time of the solution
     time1 = time.time()
     rooms, unassigned = organizer.assign(big_rooms, big_events, iterations=iterations, swap_num=10, temperature=10, print_level="none")
@@ -48,6 +52,7 @@ for n in range(500):
 
     time_data.append((num_events, num_rooms, time2-time1))
     unassigned_data.append((num_events, num_rooms, len(unassigned)/num_events))
+    baseline_data.append(len(greedy_unassigned)/num_events)
 
 from matplotlib import pyplot
 from scipy.stats.stats import pearsonr
@@ -135,6 +140,12 @@ times = [x[2] for x in time_data]
 print("Average % assigned:\t", sum(y)/len(y))
 print("Standard deviation:\t", np.std(y))
 print("Average time per iteration (s):\t", sum(times)/len(times)/iterations)
+
+y = [(1-x)*100 for x in baseline_data]
+
+print("Greedy Solution:")
+print("\tAverage % assigned:\t", sum(y)/len(y))
+print("\tStandard deviation:\t", np.std(y))
 
 pyplot.hist(y)
 pyplot.xlabel('% Assigned')
