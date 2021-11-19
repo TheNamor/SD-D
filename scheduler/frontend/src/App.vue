@@ -42,6 +42,7 @@
                     :items-per-page="-1"
                     hide-default-footer
                     :loading="loading"
+                    item-key="tableId"
                 >
                     <!-- Slot in room item to edit or delete -->
                     <template v-slot:[`item.actions`]="{ item }">
@@ -67,6 +68,7 @@
                     :items-per-page="-1"
                     hide-default-footer
                     :loading="loading"
+                    item-key="tableId"
                 >
                     <!-- Slot in event item to edit or delete -->
                     <template v-slot:[`item.actions`]="{ item }">
@@ -300,7 +302,17 @@
     <v-container>
         <v-card flat>
             <!-- Table with list of unassigned events and suggestions on how to fix -->
-            <v-card-title>Suggestions</v-card-title>
+            <v-card-title>Suggestions
+                <v-btn
+                    outlined
+                    rounded
+                    @click="resetParameters()"
+                    class="ml-2"
+                    v-if="rejectedOnce"
+                >
+                    <v-icon class="pr-2">mdi-refresh</v-icon>Reset Suggestions
+                </v-btn>
+            </v-card-title>
             <v-data-table
                 :headers="suggestionHeaders"
                 :items="suggestions"
@@ -316,6 +328,17 @@
                         >{{ isOpen ? 'mdi-minus' : 'mdi-plus' }}
                     </v-icon>
                     {{ items[0].suggestion_string }}
+                    <v-btn
+                        outlined
+                        rounded
+                        color="red"
+                        @click="rejectSuggestion(items[0].suggestion_id)"
+                        class="ml-2"
+                        style="float: right; margin-top: -6px"
+                        :disabled="items[0].suggestion_string == 'No suggestion available'"
+                    >
+                        <v-icon class="pr-2">mdi-delete-forever</v-icon>Reject
+                    </v-btn>
                     <v-btn
                         outlined
                         rounded
@@ -428,6 +451,23 @@ export default {
         solution: null,             // Holds a list of room items with lists of event items inside
         suggestions: [],            // Holds list of suggestions made by algorithm II
         unassignedEvents: [],       // Holds list of unassigned event objects
+        suggestionParameters: [     // List of parameters that algorithm II should iterate over [capacity_tolerance, self_tolerance, event_tolerance, event_length_tolerance, boost]
+            [0, 0, 0, 0, -1],
+            [5, 0.5, 0, 0, 400],
+            [10, 1, 0.5, 0, 300],
+            [20, 2, 1, 0, 200],
+            [30, 5, 3, 0.25, 100],
+            [40, 10, 10, 0.5, 0],
+        ],
+        rejectedOnce: false,        // Whether a suggestion has been rejected
+        defaultParameters: [        // Default parameters for reset
+            [0, 0, 0, 0, -1],
+            [5, 0.5, 0, 0, 400],
+            [10, 1, 0.5, 0, 300],
+            [20, 2, 1, 0, 200],
+            [30, 5, 3, 0.25, 100],
+            [40, 10, 10, 0.5, 0],
+        ]
     }),
 
     // Functions that can be called using the vue data, not cached, don't need to return
@@ -549,8 +589,9 @@ export default {
             this.deleteIndex = -1
         },
         callAlgorithm() {
-            //Calls the backend to schedule events into rooms and changes the page to the solution page
+            // Calls the backend to schedule events into rooms and changes the page to the solution page
             this.loading = true
+            this.resetParameters()
             this.solution = []
             this.unassignedEvents = []
             axios({
@@ -589,7 +630,7 @@ export default {
                 // Call the backend /suggest url
                 method: "post",
                 url: "http://" + this.host + ":8000/suggest",
-                data: {rooms: this.solution, unassigned: this.unassignedEvents}
+                data: {rooms: this.solution, unassigned: this.unassignedEvents, parameters: this.suggestionParameters}
             }).then( r=> {
                 // Check if an error occured, otherwise set the solution
                 if ("error" in r.data) {
@@ -642,6 +683,45 @@ export default {
             // Update solution calendars with splice()
             this.solution.splice()
             // Get new suggestions with new set of unassigned events
+            this.getSuggestions()
+        },
+        rejectSuggestion(suggestion_id) {
+            /*
+            * Rejects the suggestion and prevents suggestions from being less strict than the one suggested
+            * 
+            * Arguments-
+            * suggestion_id (int):      index of the suggestion that was clicked on
+            */
+            this.rejectedOnce = true
+            var suggestion = this.suggestions[suggestion_id]
+            // Get rejected parameter and rejected value
+            var parameter = suggestion.parameter[0]
+            var parameterValue = suggestion.parameter[1]
+            var minVal = 0
+            for (var i=0; i<this.suggestionParameters.length; i++) {
+                // Get the previous parameter value that is less than rejected value
+                if (this.suggestionParameters[i][parameter] < parameterValue && this.suggestionParameters[i][parameter] > minVal) {
+                    minVal = this.suggestionParameters[i][parameter]
+                } else {
+                    // Set the all parameter values to ones that are less than rejected value
+                    this.suggestionParameters[i][parameter] = minVal
+                }
+            }
+            // Get suggestions with new parameters
+            this.getSuggestions()
+        },
+        resetParameters() {
+            // Resets the suggestion parameters if rejections changed them
+            if (!this.rejectedOnce) {
+                return
+            }
+            this.rejectedOnce = false
+            var i, j
+            for (i=0; i<this.suggestionParameters.length; i++) {
+                for (j=0; j<this.suggestionParameters[i].length; j++) {
+                    this.suggestionParameters[i][j] = this.defaultParameters[i][j]
+                }
+            }
             this.getSuggestions()
         },
         inputData() {
@@ -768,6 +848,12 @@ export default {
                     this.error = true
                     this.errorText = error
                 })
+            }
+            for (i=0; i<this.roomsData.length; i++) {
+                this.roomsData.tableId = "room"+i
+            }
+            for (i=0; i<this.eventsData.length; i++) {
+                this.eventsData.tableId = "event"+i
             }
         },
         decimalToTime(decimal) {

@@ -96,12 +96,12 @@ def upload(request):
                 return HttpResponse(json.dumps({"error": str(events_name)+ " File Error: " + str(e), "rooms": [], "events": []}))
         elif events_type.lower() == ".csv":
             try:
-                events_list = csv_parser.parseEvents(events_file.read())
+                events_list = csv_parser.parseEvents(events_file)
             except Exception as e:
                 return HttpResponse(json.dumps({"error": str(events_name)+ " File Error: " + str(e), "rooms": [], "events": []}))
         elif events_type.lower() == ".xlsx":
             try:
-                events_list = xlsx_parser.parseEvents(events_file.read())
+                events_list = xlsx_parser.parseEvents(events_file)
             except Exception as e:
                 return HttpResponse(json.dumps({"error": str(events_name)+ " File Error: " + str(e), "rooms": [], "events": []}))
         elif events_type.lower() == ".tsv":
@@ -201,6 +201,8 @@ def suggest(request):
 
     body = json.loads(request.body)
 
+    parameters = body.get("parameters", [(5, 0.5, 0, 0, 400), (10, 1, 0.5, 0, 300), (20, 2, 1, 0, 200), (30, 5, 3, 0.25, 100), (40, 10, 10, 0.5, 0)])
+
     room_list = []
     unassigned = []
 
@@ -214,7 +216,6 @@ def suggest(request):
         unassigned.append(algorithm_I.Event(event.get("name", ""), float(event.get("starts", 0)), float(event.get("ends", 24)), int(event.get("attendance", 1)), id=int(event.get("id", 0))))
 
     try:
-        parameters = [(5, 0.5, 0, 0, 400), (10, 1, 0.5, 0, 300), (20, 2, 1, 0, 200), (30, 5, 3, 0.25, 100), (40, 10, 10, 0.5, 0)]
 
         suggester = algorithm_II.Suggester(room_list, unassigned)
 
@@ -247,7 +248,8 @@ def suggest(request):
                             "unassigned": event,
                             "multiple": events,
                             "room": room.export(),
-                            "changed_events": dict()
+                            "changed_events": dict(),
+                            "parameter": [0, suggestion[1][1]]
                         })
                     continue
                 else:
@@ -274,15 +276,21 @@ def suggest(request):
                     "suggestion_string": suggest_string,
                     "unassigned": events,
                     "room": room.export(),
-                    "changed_events": changed_events
+                    "changed_events": changed_events,
+                    "parameter": [1, suggestion[1][1]]
                 })
             # If we suggest to shift events
             if suggestion[1][0] == "shift":
                 room = suggestion[3]
                 # Dictionary mapping to changed events
                 changed_events = dict()
+                # The maximum shift for when rejecting suggestions
+                max_shift = -1
                 # For each shifted event
                 for j in range(len(suggestion[1][1:])//2):
+                    # Find maximum shift
+                    if abs(suggestion[1][1:][j*2+1]) > max_shift:
+                        max_shift = abs(suggestion[1][1:][j*2+1])
                     # Shift the event appropriately and add it to the map
                     current_event = room.events[suggestion[1][1:][j*2]].copy()
                     if not current_event.moveBy(suggestion[1][1:][j*2+1]):
@@ -303,15 +311,21 @@ def suggest(request):
                     "suggestion_string": suggest_string,
                     "unassigned": events,
                     "room": room.export(),
-                    "changed_events": changed_events
+                    "changed_events": changed_events,
+                    "parameter": [2, max_shift]
                 })
             # If we suggest to shorten events
             if suggestion[1][0] == "length":
                 room = suggestion[3]
                 # Dictionary mapping to changed events
                 changed_events = dict()
+                # The maximum shift for when rejecting suggestions
+                max_shift = -1
                 # For each shortened event
                 for j in range(len(suggestion[1][1:])//2):
+                    # Find maximum shift
+                    if abs(suggestion[1][1:][j*2+1]) > max_shift:
+                        max_shift = abs(suggestion[1][1:][j*2+1])
                     # Shorten the event appropriately and add it to the map
                     current_event = room.events[suggestion[1][1:][j*2]]
                     if not current_event.shortenBy(suggestion[1][1:][j*2+1]):
@@ -332,7 +346,8 @@ def suggest(request):
                     "suggestion_string": suggest_string,
                     "unassigned": events,
                     "room": room.export(),
-                    "changed_events": changed_events
+                    "changed_events": changed_events,
+                    "parameters": [3, max_shift]
                 })
         
         for event in still_unassigned:
