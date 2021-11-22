@@ -174,7 +174,7 @@ class Suggester(object):
             if len(new_suggestion[2]) > 0:
                 new_suggestion[0] += len(new_suggestion[2])
                 self.suggestions.append(new_suggestion)
-        
+
         # Next check if events can be fit in by moving the event itself
         for room in self.rooms:
             # Assuming only 1 extra event can get fit in per suggestion
@@ -213,6 +213,7 @@ class Suggester(object):
                 
                 # Skip empty rooms as they will have been filled by now
                 if len(room.events) == 0:
+                    new_unassigned.append(event)
                     continue
 
                 # Check before first event

@@ -347,7 +347,7 @@ def suggest(request):
                     "unassigned": events,
                     "room": room.export(),
                     "changed_events": changed_events,
-                    "parameters": [3, max_shift]
+                    "parameter": [3, max_shift]
                 })
         
         for event in still_unassigned:

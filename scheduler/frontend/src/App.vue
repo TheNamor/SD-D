@@ -828,6 +828,7 @@ export default {
                     if ("error" in r.data) {
                         this.error = true
                         this.errorText = r.data.error
+                        this.inputOpen = false
                         return
                     }
                     if (this.roomsData.length) {
@@ -847,6 +848,7 @@ export default {
                     // Check if an error occured in the http request
                     this.error = true
                     this.errorText = error
+                    this.inputOpen = false
                 })
             }
             for (i=0; i<this.roomsData.length; i++) {
