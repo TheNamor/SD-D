@@ -26,6 +26,7 @@ SECRET_KEY = 'django-insecure-pwj*khgt_pc66f_*d54p_&&x7#^(1(e#gi-u_+enb=6%^s@x$-
 DEBUG = True
 
 ALLOWED_HOSTS = [
+    "*",
     "localhost",
     "127.0.0.1",
     "129.161.213.118",
@@ -56,7 +57,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 #'django.middleware.csrf.CsrfViewMiddleware',
-
+CORS_ORIGIN_ALLOW_ALL = True
 ROOT_URLCONF = 'scheduler.urls'
 
 TEMPLATES = [
